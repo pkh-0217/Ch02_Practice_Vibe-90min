@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오늘의 목표 & 회고</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --accent: #4f46e5;
+      --text: #1f2430;
+      --muted: #8a90a2;
+      --done: #b8bdc9;
+      --border: #e6e8ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "맑은 고딕", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+    header h1 { margin: 0 0 12px; font-size: 1.6rem; }
+
+    /* 2열 대시보드 레이아웃 */
+    .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .dashboard .span-all { grid-column: 1 / -1; } /* 전체 너비로 펼치는 카드 */
+    @media (max-width: 760px) { .dashboard { grid-template-columns: 1fr; } }
+
+    /* 날짜 이동 네비게이션 */
+    .datenav { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+    .navbtn {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border); background: var(--card);
+      border-radius: 9px; font-size: 1rem; cursor: pointer; color: var(--text);
+    }
+    .navbtn:hover:not(:disabled) { background: #eef0f5; }
+    .navbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .datebox { display: flex; align-items: baseline; gap: 8px; }
+    .date { color: var(--text); font-weight: 600; }
+    .rel { color: var(--accent); font-size: 0.85rem; font-weight: 600; }
+    .today-btn {
+      padding: 7px 12px;
+      border: 1px solid var(--border); background: var(--card);
+      border-radius: 9px; cursor: pointer; color: var(--muted); font-size: 0.9rem;
+    }
+    .today-btn:hover { background: #eef0f5; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 0;
+    }
+    .card h2 { margin: 0 0 16px; font-size: 1.15rem; }
+    .save-btn {
+      padding: 11px 18px; border: none; border-radius: 9px;
+      background: var(--accent); color: #fff; font-size: 1rem; cursor: pointer;
+    }
+    .save-btn:hover { opacity: 0.9; }
+    .link-btn {
+      background: none; border: none; color: var(--accent);
+      font-size: 0.88rem; cursor: pointer; padding: 0 0 12px;
+    }
+    .link-btn:hover { text-decoration: underline; }
+
+    /* 이월 안내 */
+    .carry-note {
+      display: none;
+      background: #eef0ff; color: #4338ca;
+      border: 1px solid #dcdffb; border-radius: 9px;
+      padding: 10px 14px; font-size: 0.9rem; margin-bottom: 14px;
+    }
+
+    /* 칸반 보드 */
+    .kb-input { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .kb-input select {
+      padding: 11px 12px; border: 1px solid var(--border);
+      border-radius: 9px; font-size: 0.95rem; background: var(--card); cursor: pointer;
+    }
+    .kb-input input {
+      flex: 1; min-width: 140px; padding: 11px 14px;
+      border: 1px solid var(--border); border-radius: 9px; font-size: 1rem;
+    }
+    .kb-input button {
+      padding: 11px 18px; border: none; border-radius: 9px;
+      background: var(--accent); color: #fff; font-size: 1rem; cursor: pointer;
+    }
+    .kb-input button:hover { opacity: 0.9; }
+
+    .kb-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .kb-col { background: #f7f8fa; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+    .kb-col-head { font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .kb-count { background: #e6e8ee; color: var(--muted); border-radius: 20px; font-size: 0.75rem; padding: 1px 8px; font-weight: 600; }
+    .kb-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; border-radius: 9px; padding: 2px; }
+    .kb-list.drop-hover { background: #e9ebff; outline: 2px dashed var(--accent); }
+    .kb-empty { color: var(--done); font-size: 0.82rem; text-align: center; padding: 14px 0; }
+
+    .kb-card { background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; cursor: grab; }
+    .kb-card:hover { border-color: var(--accent); }
+    .kb-card.dragging { opacity: 0.5; }
+    .kb-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .kb-tag { font-size: 0.7rem; font-weight: 600; border-radius: 20px; padding: 2px 8px; }
+    .kb-tag.work { background: #ffe9d6; color: #b45309; }
+    .kb-tag.study { background: #dbeafe; color: #1d4ed8; }
+    .kb-tag.general { background: #eceef3; color: #5b6172; }
+    .kb-carry { font-size: 0.68rem; color: var(--accent); }
+    .kb-text { font-size: 0.92rem; word-break: break-word; }
+    .kb-meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+    .kb-due { font-size: 0.72rem; color: var(--muted); background: #f0f1f5; border-radius: 6px; padding: 1px 7px; }
+    .kb-due.overdue { background: #fdecec; color: #e5484d; font-weight: 600; }
+    .kb-memo-icon { font-size: 0.72rem; color: var(--muted); }
+    .kb-hint { margin-top: 12px; font-size: 0.82rem; color: var(--muted); }
+
+    /* 통계 */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; }
+    .stat {
+      flex: 1; min-width: 160px;
+      background: #f7f8fa; border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; text-align: center;
+    }
+    .stat-value { font-size: 1.9rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+    .stat-bar { height: 8px; background: #e6e8ee; border-radius: 20px; margin: 10px 0 8px; overflow: hidden; }
+    .stat-bar-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.4s; }
+    .stat-label { font-size: 0.9rem; color: var(--text); margin-top: 6px; font-weight: 600; }
+    .stat-sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    @media (max-width: 560px) { .kb-board { grid-template-columns: 1fr; } }
+
+    /* 회고 저널 */
+    .journal label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 0.95rem; }
+    .journal textarea {
+      width: 100%;
+      min-height: 64px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+    }
+    .save-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+    .saved-msg { color: #22a06b; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; }
+    .saved-msg.show { opacity: 1; }
+
+    /* 기록 달력 */
+    .cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .cal-title { font-weight: 600; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-head { text-align: center; font-size: 0.78rem; color: var(--muted); padding: 4px 0; }
+    .cal-head.sun { color: #e5484d; }
+    .cal-head.sat { color: #3b82f6; }
+    .cal-day {
+      position: relative;
+      min-height: 42px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9px; font-size: 0.9rem; cursor: pointer;
+      border: 1px solid transparent; color: var(--text);
+    }
+    .cal-day:hover { background: #eef0f5; }
+    .cal-day.blank, .cal-day.blank:hover { cursor: default; background: none; }
+    .cal-day.future, .cal-day.future:hover { color: var(--done); cursor: not-allowed; background: none; }
+    .cal-day.today { border-color: var(--accent); font-weight: 700; }
+    .cal-day.selected, .cal-day.selected:hover { background: var(--accent); color: #fff; }
+    .cal-dot {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    }
+    .cal-day.selected .cal-dot { background: #fff; }
+    .cal-legend { margin-top: 12px; font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .cal-legend .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+
+    /* 백업 도구 */
+    .tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .tool-btn {
+      padding: 10px 16px;
+      border: 1px solid var(--border); background: var(--card);
+      border-radius: 9px; cursor: pointer; color: var(--text); font-size: 0.95rem;
+    }
+    .tool-btn:hover { background: #eef0f5; }
+    .tools .hint { color: var(--muted); font-size: 0.85rem; }
+
+    /* 카드 상세 모달 */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(20, 24, 40, 0.45);
+      display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+    }
+    .modal-overlay[hidden] { display: none; }
+    .modal {
+      background: var(--card); border-radius: 14px; width: 100%; max-width: 460px;
+      max-height: 90vh; overflow-y: auto; padding: 22px;
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; }
+    .modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted); line-height: 1; }
+    .modal label { display: block; font-weight: 600; font-size: 0.85rem; margin: 14px 0 6px; }
+    .modal input[type="text"], .modal textarea, .modal select, .modal input[type="time"] {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: 9px; font-size: 0.95rem; font-family: inherit; background: var(--card);
+    }
+    .modal textarea { min-height: 70px; resize: vertical; }
+    .modal-row { display: flex; gap: 12px; }
+    .modal-row > div { flex: 1; }
+    .modal-status { display: flex; gap: 6px; }
+    .modal-status button {
+      flex: 1; padding: 8px 0; border: 1px solid var(--border); background: var(--card);
+      border-radius: 8px; cursor: pointer; font-size: 0.83rem; color: var(--text);
+    }
+    .modal-status button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .modal-retro { display: flex; gap: 6px; flex-wrap: wrap; }
+    .modal-retro button {
+      flex: 1; min-width: 90px; padding: 8px 0; border: 1px dashed var(--accent);
+      background: #eef0ff; color: var(--accent); border-radius: 8px; cursor: pointer; font-size: 0.83rem;
+    }
+    .modal-retro button:hover { background: #e0e3ff; }
+    .modal-foot { display: flex; justify-content: space-between; margin-top: 22px; }
+    .modal-del { background: none; border: 1px solid #f3c0c2; color: #e5484d; border-radius: 9px; padding: 10px 16px; cursor: pointer; }
+    .modal-del:hover { background: #fdecec; }
+    .modal-save { background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 10px 20px; cursor: pointer; font-size: 0.95rem; }
+    .modal-save:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>오늘의 목표 보드 & 회고</h1>
+      <div class="datenav">
+        <button id="prevDay" class="navbtn" title="이전 날">◀</button>
+        <button id="nextDay" class="navbtn" title="다음 날">▶</button>
+        <div class="datebox">
+          <span class="date" id="todayLabel"></span>
+          <span class="rel" id="relLabel"></span>
+        </div>
+        <button id="goToday" class="today-btn">오늘로</button>
+      </div>
+    </header>
+
+    <div class="dashboard">
+    <!-- 칸반 보드: 오늘의 할 일 · 핵심 업무 · 학습 목표 -->
+    <section class="card span-all">
+      <h2>🗂️ 오늘의 목표 보드</h2>
+      <div class="carry-note" id="carryNote"></div>
+      <div class="kb-input">
+        <select id="kbCat">
+          <option value="work">핵심 업무</option>
+          <option value="study">학습 목표</option>
+          <option value="general">일반</option>
+        </select>
+        <input id="kbText" type="text" placeholder="할 일·목표를 입력하고 Enter" />
+        <button id="kbAddBtn">추가</button>
+      </div>
+      <button class="link-btn" id="carryBtn">↩ 어제 못 끝낸 카드 가져오기</button>
+      <div class="kb-board" id="kbBoard"></div>
+      <div class="kb-hint">카드를 끌어서 옮기거나, 클릭하면 메모·마감 시간·회고 연결을 설정할 수 있어요.</div>
+    </section>
+
+    <!-- 통계 -->
+    <section class="card span-all">
+      <h2>📊 통계</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="statRate">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="statRateBar"></div></div>
+          <div class="stat-label">이번 주 완료율</div>
+          <div class="stat-sub" id="statRateSub"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statStreak">🔥 0일</div>
+          <div class="stat-label">연속 기록</div>
+          <div class="stat-sub" id="statStreakSub"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 매일 회고 -->
+    <section class="card journal">
+      <h2>📔 오늘의 회고</h2>
+      <label for="good">오늘 잘한 것</label>
+      <textarea id="good" placeholder="작은 것이라도 좋아요"></textarea>
+
+      <label for="bad">아쉬운 것</label>
+      <textarea id="bad" placeholder="개선하고 싶은 점"></textarea>
+
+      <label for="tomorrow">내일 할 것</label>
+      <textarea id="tomorrow" placeholder="내일의 다짐 한 가지"></textarea>
+
+      <div class="save-row">
+        <button class="save-btn" id="saveJournalBtn">회고 저장</button>
+        <span class="saved-msg" id="savedMsg">저장됨 ✓</span>
+      </div>
+    </section>
+
+    <!-- 기록 달력 -->
+    <section class="card">
+      <h2>📅 기록 달력</h2>
+      <div class="cal-nav">
+        <button id="calPrev" class="navbtn" title="이전 달">◀</button>
+        <button id="calNext" class="navbtn" title="다음 달">▶</button>
+        <span class="cal-title" id="calTitle"></span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend"><span class="dot"></span> 기록이 있는 날 · 날짜를 누르면 그날로 이동해요</div>
+    </section>
+
+    <!-- 데이터 백업 -->
+    <section class="card span-all">
+      <h2>💾 데이터 백업</h2>
+      <div class="tools">
+        <button class="tool-btn" id="exportBtn">JSON으로 내보내기</button>
+        <button class="tool-btn" id="importBtn">JSON 가져오기</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+        <span class="hint">브라우저 저장소가 지워질 때를 대비한 백업이에요.</span>
+      </div>
+    </section>
+    </div>
+
+  </div>
+
+  <!-- 카드 상세 모달 -->
+  <div class="modal-overlay" id="cardModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <span class="modal-title">카드 상세</span>
+        <button class="modal-close" id="modalClose" title="닫기">×</button>
+      </div>
+      <label for="mText">내용</label>
+      <input id="mText" type="text" />
+      <div class="modal-row">
+        <div>
+          <label for="mCat">분류</label>
+          <select id="mCat">
+            <option value="work">핵심 업무</option>
+            <option value="study">학습 목표</option>
+            <option value="general">일반</option>
+          </select>
+        </div>
+        <div>
+          <label for="mDue">마감 시간</label>
+          <input id="mDue" type="time" />
+        </div>
+      </div>
+      <label>상태</label>
+      <div class="modal-status" id="mStatus">
+        <button type="button">📋 할 일</button>
+        <button type="button">🔄 진행 중</button>
+        <button type="button">✅ 완료</button>
+      </div>
+      <label for="mMemo">메모</label>
+      <textarea id="mMemo" placeholder="자세한 내용이나 메모를 적어두세요"></textarea>
+      <label>회고에 추가</label>
+      <div class="modal-retro">
+        <button type="button" data-field="good">잘한 것</button>
+        <button type="button" data-field="bad">아쉬운 것</button>
+        <button type="button" data-field="tomorrow">내일 할 것</button>
+      </div>
+      <div class="modal-foot">
+        <button class="modal-del" id="mDelete">삭제</button>
+        <button class="modal-save" id="mSave">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- 저장소 헬퍼 ----
+    const load = (key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+    const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+    const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+    // ---- 날짜 처리 ----
+    // 로컬 자정 기준으로 "YYYY-MM-DD" 키를 만든다 (toISOString은 UTC라 자정 근처에 하루가 어긋날 수 있음)
+    const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+    const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+    const toKey = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    const todayStart = startOfDay(new Date());
+    let viewDate = new Date(todayStart); // 지금 화면에 보이는 날짜
+
+    // ---- 날짜에 따라 바뀌는 키/데이터 ----
+    let JOURNAL_KEY, KANBAN_KEY, journal, kanban;
+    let dragId = null;   // 드래그 중인 카드 id
+    let editingId = null; // 모달에서 편집 중인 카드 id
+    let modalStatus = 0;  // 모달에서 선택한 상태
+    const journalFields = ["good", "bad", "tomorrow"];
+
+    // ---- 칸반 상수 ----
+    const KB_STATUS = ["할 일", "진행 중", "완료"];
+    const KB_ICON = ["📋", "🔄", "✅"];
+    const KB_CAT = { work: "핵심 업무", study: "학습 목표", general: "일반" };
+
+    // ---- 요소 캐싱 ----
+    const todayLabel = document.getElementById("todayLabel");
+    const relLabel = document.getElementById("relLabel");
+    const prevBtn = document.getElementById("prevDay");
+    const nextBtn = document.getElementById("nextDay");
+    const goTodayBtn = document.getElementById("goToday");
+    const carryNote = document.getElementById("carryNote");
+    const calTitle = document.getElementById("calTitle");
+    const calGrid = document.getElementById("calGrid");
+    const calPrev = document.getElementById("calPrev");
+    const calNext = document.getElementById("calNext");
+    const kbBoard = document.getElementById("kbBoard");
+    const kbText = document.getElementById("kbText");
+    const kbCat = document.getElementById("kbCat");
+    const kbAddBtn = document.getElementById("kbAddBtn");
+    // 모달
+    const cardModal = document.getElementById("cardModal");
+    const mText = document.getElementById("mText");
+    const mCat = document.getElementById("mCat");
+    const mDue = document.getElementById("mDue");
+    const mMemo = document.getElementById("mMemo");
+    const mStatusBox = document.getElementById("mStatus");
+
+    let carriedCount = 0;                    // 이번에 자동 이월된 카드 개수
+    let calMonth = startOfMonth(todayStart); // 달력에 표시 중인 달
+
+    // 선택한 날짜의 데이터를 불러오고 화면을 다시 그린다
+    function loadDay() {
+      const key = toKey(viewDate);
+      JOURNAL_KEY = "journal:" + key;
+      KANBAN_KEY = "kanban:" + key;
+      journal = load(JOURNAL_KEY, {});
+      kanban = load(KANBAN_KEY, []);
+      calMonth = startOfMonth(viewDate); // 달력을 선택한 날짜의 달로 맞춤
+      renderAll();
+    }
+
+    function renderAll() { renderHeader(); renderCalendar(); renderCarryNote(); renderKanban(); renderJournal(); }
+
+    // ====== 날짜 헤더 / 이동 ======
+    function renderHeader() {
+      todayLabel.textContent = viewDate.toLocaleDateString("ko-KR",
+        { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+      const diff = Math.round((todayStart - startOfDay(viewDate)) / 86400000);
+      relLabel.textContent = diff === 0 ? "오늘" : diff === 1 ? "어제" : diff > 1 ? diff + "일 전" : "";
+      nextBtn.disabled = diff === 0; // 미래로는 이동 불가
+      goTodayBtn.style.display = diff === 0 ? "none" : "inline-block";
+    }
+
+    function shiftDay(delta) {
+      const d = new Date(viewDate);
+      d.setDate(d.getDate() + delta);
+      if (startOfDay(d) > todayStart) return; // 미래 차단
+      viewDate = d;
+      loadDay();
+    }
+
+    prevBtn.onclick = () => shiftDay(-1);
+    nextBtn.onclick = () => shiftDay(1);
+    goTodayBtn.onclick = () => { viewDate = new Date(todayStart); loadDay(); };
+
+    // ====== 데이터 이전(마이그레이션): 옛 "할 일" 목록을 보드 카드로 옮긴다 ======
+    // todos: 키를 찾아 보드의 "일반" 카드로 옮기고, 옮긴 뒤 옛 키는 삭제 (다시 옮기지 않음)
+    function migrateTodosToBoard() {
+      const todoKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("todos:")) todoKeys.push(k);
+      }
+      todoKeys.forEach((tk) => {
+        const date = tk.slice(6);
+        const oldTodos = load(tk, []);
+        const boardKey = "kanban:" + date;
+        const board = load(boardKey, []);
+        const existing = new Set(board.map((c) => c.text));
+        if (Array.isArray(oldTodos)) {
+          oldTodos.forEach((t) => {
+            if (t && t.text && !existing.has(t.text)) {
+              board.push({
+                id: newId(), text: t.text, cat: "general",
+                status: t.done ? 2 : 0, memo: "", due: "", carried: !!t.carried,
+              });
+              existing.add(t.text);
+            }
+          });
+          save(boardKey, board);
+        }
+        localStorage.removeItem(tk);
+      });
+    }
+
+    // ====== 자동 이월: 이전 보드의 미완료 카드(완료 아님)를 오늘로 가져온다 ======
+    function findPrevBoardKey(todayKey) {
+      let best = null;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("kanban:")) {
+          const dk = k.slice(7); // YYYY-MM-DD는 문자열 정렬 = 날짜 정렬
+          if (dk < todayKey && (best === null || dk > best)) best = dk;
+        }
+      }
+      return best;
+    }
+
+    // 이전 보드의 미완료 카드를 오늘 보드에 추가 (같은 내용이 이미 있으면 건너뜀). 추가된 개수 반환.
+    function pullIncompleteFromPrevDay() {
+      const todayKey = toKey(todayStart);
+      const prevKey = findPrevBoardKey(todayKey);
+      if (!prevKey) return 0;
+      const incomplete = load("kanban:" + prevKey, []).filter((c) => c.status !== 2);
+      if (incomplete.length === 0) return 0;
+
+      const todayBoard = load("kanban:" + todayKey, []);
+      const existing = new Set(todayBoard.map((c) => c.text));
+      let added = 0;
+      incomplete.forEach((c) => {
+        if (!existing.has(c.text)) {
+          todayBoard.push({
+            id: newId(), text: c.text, cat: c.cat || "general",
+            status: c.status, // 진행 중 상태는 유지
+            memo: c.memo || "", due: c.due || "", carried: true,
+          });
+          existing.add(c.text);
+          added++;
+        }
+      });
+      if (added > 0) save("kanban:" + todayKey, todayBoard);
+      return added;
+    }
+
+    // 앱 시작 시 자동 이월: 하루에 한 번만 (플래그로 중복 실행 방지)
+    function carryOverIncomplete() {
+      const flagKey = "carried:" + toKey(todayStart);
+      if (localStorage.getItem(flagKey)) return;
+      carriedCount = pullIncompleteFromPrevDay();
+      localStorage.setItem(flagKey, "1");
+    }
+
+    // "어제 못 끝낸 카드 가져오기" 버튼: 언제든 수동으로 당겨오기 (이미 가져온 건 건너뜀)
+    function manualCarry() {
+      viewDate = new Date(todayStart);
+      const added = pullIncompleteFromPrevDay();
+      carriedCount = added;
+      loadDay();
+      if (added === 0) {
+        alert("가져올 미완료 카드가 없어요.\n(이전 날 보드가 없거나, 이미 다 가져왔거나, 모두 완료한 상태예요)");
+      }
+    }
+
+    function renderCarryNote() {
+      const isToday = startOfDay(viewDate).getTime() === todayStart.getTime();
+      if (isToday && carriedCount > 0) {
+        carryNote.textContent = `어제 끝내지 못한 카드 ${carriedCount}개를 오늘 보드로 가져왔어요.`;
+        carryNote.style.display = "block";
+      } else {
+        carryNote.style.display = "none";
+      }
+    }
+
+    document.getElementById("carryBtn").onclick = manualCarry;
+
+    // ====== 칸반 보드 ======
+    function saveKanban() { save(KANBAN_KEY, kanban); }
+
+    function moveCardTo(id, newStatus) {
+      if (id == null || newStatus < 0 || newStatus > 2) return;
+      const card = kanban.find((c) => c.id === id);
+      if (!card || card.status === newStatus) return;
+      card.status = newStatus;
+      saveKanban();
+      renderKanban();
+      renderStats(); // 완료율 즉시 반영
+    }
+
+    // 오늘 화면에서, 마감 시간이 지났고 아직 완료가 아니면 true
+    function isOverdue(card) {
+      if (!card.due || card.status === 2) return false;
+      if (startOfDay(viewDate).getTime() !== todayStart.getTime()) return false;
+      const now = new Date();
+      const nowStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+      return card.due < nowStr;
+    }
+
+    function buildCard(card) {
+      const el = document.createElement("div");
+      el.className = "kb-card";
+      el.draggable = true;
+      el.ondragstart = () => { dragId = card.id; el.classList.add("dragging"); };
+      el.ondragend = () => el.classList.remove("dragging");
+      el.onclick = () => openCard(card.id);
+
+      const top = document.createElement("div");
+      top.className = "kb-card-top";
+      const tag = document.createElement("span");
+      tag.className = "kb-tag " + card.cat;
+      tag.textContent = KB_CAT[card.cat] || "";
+      top.appendChild(tag);
+      if (card.carried) {
+        const c = document.createElement("span");
+        c.className = "kb-carry";
+        c.textContent = "↩ 이월";
+        top.appendChild(c);
+      }
+
+      const text = document.createElement("div");
+      text.className = "kb-text";
+      text.textContent = card.text;
+      el.append(top, text);
+
+      const hasMemo = card.memo && card.memo.trim() !== "";
+      if (card.due || hasMemo) {
+        const meta = document.createElement("div");
+        meta.className = "kb-meta";
+        if (card.due) {
+          const due = document.createElement("span");
+          due.className = "kb-due" + (isOverdue(card) ? " overdue" : "");
+          due.textContent = "⏰ " + card.due;
+          meta.appendChild(due);
+        }
+        if (hasMemo) {
+          const m = document.createElement("span");
+          m.className = "kb-memo-icon";
+          m.textContent = "📝 메모";
+          meta.appendChild(m);
+        }
+        el.appendChild(meta);
+      }
+      return el;
+    }
+
+    function renderKanban() {
+      kbBoard.innerHTML = "";
+      for (let s = 0; s < 3; s++) {
+        const col = document.createElement("div");
+        col.className = "kb-col";
+
+        const cards = kanban.filter((c) => c.status === s);
+        const head = document.createElement("div");
+        head.className = "kb-col-head";
+        head.innerHTML = `${KB_ICON[s]} ${KB_STATUS[s]} <span class="kb-count">${cards.length}</span>`;
+        col.appendChild(head);
+
+        const list = document.createElement("div");
+        list.className = "kb-list";
+        list.ondragover = (e) => { e.preventDefault(); list.classList.add("drop-hover"); };
+        list.ondragleave = () => list.classList.remove("drop-hover");
+        list.ondrop = (e) => {
+          e.preventDefault();
+          list.classList.remove("drop-hover");
+          moveCardTo(dragId, s);
+        };
+
+        cards.forEach((card) => list.appendChild(buildCard(card)));
+        if (cards.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "kb-empty";
+          empty.textContent = "비어 있음";
+          list.appendChild(empty);
+        }
+
+        col.appendChild(list);
+        kbBoard.appendChild(col);
+      }
+    }
+
+    function addCard() {
+      const text = kbText.value.trim();
+      if (!text) return;
+      kanban.push({ id: newId(), text, cat: kbCat.value, status: 0, memo: "", due: "", carried: false });
+      saveKanban();
+      kbText.value = "";
+      renderKanban();
+      renderCalendar();
+    }
+
+    kbAddBtn.onclick = addCard;
+    kbText.addEventListener("keydown", (e) => { if (e.key === "Enter") addCard(); });
+
+    // ====== 카드 상세 모달 ======
+    function openCard(id) {
+      const card = kanban.find((c) => c.id === id);
+      if (!card) return;
+      editingId = id;
+      modalStatus = card.status;
+      mText.value = card.text;
+      mCat.value = card.cat;
+      mDue.value = card.due || "";
+      mMemo.value = card.memo || "";
+      renderModalStatus();
+      cardModal.hidden = false;
+    }
+
+    function renderModalStatus() {
+      [...mStatusBox.children].forEach((btn, i) => btn.classList.toggle("active", i === modalStatus));
+    }
+
+    function closeModal() { cardModal.hidden = true; editingId = null; }
+
+    function saveCard() {
+      const card = kanban.find((c) => c.id === editingId);
+      if (!card) { closeModal(); return; }
+      const t = mText.value.trim();
+      if (!t) { alert("내용을 입력해 주세요."); return; }
+      card.text = t;
+      card.cat = mCat.value;
+      card.due = mDue.value;
+      card.memo = mMemo.value;
+      card.status = modalStatus;
+      saveKanban();
+      renderKanban();
+      renderCalendar();
+      closeModal();
+    }
+
+    function deleteCard() {
+      if (!confirm("이 카드를 삭제할까요?")) return;
+      kanban = kanban.filter((c) => c.id !== editingId);
+      saveKanban();
+      renderKanban();
+      renderCalendar();
+      closeModal();
+    }
+
+    // 회고에 카드 내용을 한 줄 추가 (입력 중인 회고 내용은 보존)
+    function addToJournal(field, btn) {
+      const card = kanban.find((c) => c.id === editingId);
+      if (!card) return;
+      journalFields.forEach((f) => { journal[f] = document.getElementById(f).value; });
+      const line = "• " + card.text;
+      const cur = (journal[field] || "").replace(/\s*$/, "");
+      journal[field] = cur ? cur + "\n" + line : line;
+      save(JOURNAL_KEY, journal);
+      renderJournal();
+      renderCalendar();
+      const original = btn.textContent;
+      btn.textContent = "추가됨 ✓";
+      setTimeout(() => { btn.textContent = original; }, 1200);
+    }
+
+    // 모달 버튼 연결
+    [...mStatusBox.children].forEach((btn, i) => {
+      btn.onclick = () => { modalStatus = i; renderModalStatus(); };
+    });
+    document.querySelectorAll(".modal-retro button").forEach((btn) => {
+      btn.onclick = () => addToJournal(btn.dataset.field, btn);
+    });
+    document.getElementById("mSave").onclick = saveCard;
+    document.getElementById("mDelete").onclick = deleteCard;
+    document.getElementById("modalClose").onclick = closeModal;
+    cardModal.onclick = (e) => { if (e.target === cardModal) closeModal(); };
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !cardModal.hidden) closeModal(); });
+
+    // ====== 회고 저널 ======
+    function renderJournal() {
+      journalFields.forEach((f) => { document.getElementById(f).value = journal[f] || ""; });
+    }
+
+    document.getElementById("saveJournalBtn").onclick = () => {
+      journalFields.forEach((f) => { journal[f] = document.getElementById(f).value; });
+      save(JOURNAL_KEY, journal);
+      renderCalendar();
+      const msg = document.getElementById("savedMsg");
+      msg.classList.add("show");
+      setTimeout(() => msg.classList.remove("show"), 1500);
+    };
+
+    // ====== 기록 달력 ======
+    // 보드(카드 1개 이상) 또는 회고(내용 있음) 기록이 있는 날짜들의 집합
+    function getRecordedDays() {
+      const set = new Set();
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (k.startsWith("kanban:")) {
+          const arr = load(k, []);
+          if (Array.isArray(arr) && arr.length > 0) set.add(k.slice(7));
+        } else if (k.startsWith("journal:")) {
+          const obj = load(k, {});
+          if (Object.values(obj).some((v) => v && String(v).trim() !== "")) set.add(k.slice(8));
+        }
+      }
+      return set;
+    }
+
+    function renderCalendar() {
+      const year = calMonth.getFullYear();
+      const month = calMonth.getMonth(); // 0~11
+      calTitle.textContent = year + "년 " + (month + 1) + "월";
+
+      const thisMonth = startOfMonth(todayStart);
+      calNext.disabled = year === thisMonth.getFullYear() && month === thisMonth.getMonth();
+
+      const recorded = getRecordedDays();
+      const selectedKey = toKey(viewDate);
+      const todayKey = toKey(todayStart);
+
+      calGrid.innerHTML = "";
+      ["일", "월", "화", "수", "목", "금", "토"].forEach((h, idx) => {
+        const head = document.createElement("div");
+        head.className = "cal-head" + (idx === 0 ? " sun" : idx === 6 ? " sat" : "");
+        head.textContent = h;
+        calGrid.appendChild(head);
+      });
+
+      const firstWeekday = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < firstWeekday; i++) {
+        const blank = document.createElement("div");
+        blank.className = "cal-day blank";
+        calGrid.appendChild(blank);
+      }
+
+      for (let d = 1; d <= lastDate; d++) {
+        const cellDate = new Date(year, month, d);
+        const key = toKey(cellDate);
+        const cell = document.createElement("div");
+        cell.className = "cal-day";
+        cell.textContent = d;
+
+        const isFuture = startOfDay(cellDate) > todayStart;
+        if (isFuture) cell.classList.add("future");
+        if (key === todayKey) cell.classList.add("today");
+        if (key === selectedKey) cell.classList.add("selected");
+
+        if (recorded.has(key)) {
+          const dot = document.createElement("span");
+          dot.className = "cal-dot";
+          cell.appendChild(dot);
+        }
+
+        if (!isFuture) {
+          cell.onclick = () => {
+            viewDate = new Date(cellDate);
+            loadDay();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          };
+        }
+        calGrid.appendChild(cell);
+      }
+      renderStats(); // 달력과 통계는 같은 데이터에서 나오므로 함께 갱신
+    }
+
+    calPrev.onclick = () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); };
+    calNext.onclick = () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); };
+
+    // ====== 통계 ======
+    // 연속 기록 일수: 오늘(아직 기록 없으면 어제)부터 거슬러 올라가며 기록 있는 날을 센다
+    function computeStreak(recorded) {
+      let streak = 0;
+      const d = new Date(todayStart);
+      if (!recorded.has(toKey(d))) d.setDate(d.getDate() - 1);
+      while (recorded.has(toKey(d))) {
+        streak++;
+        d.setDate(d.getDate() - 1);
+      }
+      return streak;
+    }
+
+    // 이번 주(일요일~오늘) 보드 카드의 완료율
+    function computeWeekStats() {
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // 이번 주 일요일로
+      let total = 0, done = 0;
+      const d = new Date(weekStart);
+      while (d <= todayStart) {
+        load("kanban:" + toKey(d), []).forEach((c) => { total++; if (c.status === 2) done++; });
+        d.setDate(d.getDate() + 1);
+      }
+      return { total, done, rate: total ? Math.round((done / total) * 100) : 0 };
+    }
+
+    function renderStats() {
+      const recorded = getRecordedDays();
+      const streak = computeStreak(recorded);
+      document.getElementById("statStreak").textContent = "🔥 " + streak + "일";
+      document.getElementById("statStreakSub").textContent =
+        streak === 0 ? "오늘 기록을 남겨보세요" : "연속 기록 중!";
+
+      const wk = computeWeekStats();
+      document.getElementById("statRate").textContent = wk.total ? wk.rate + "%" : "—";
+      document.getElementById("statRateBar").style.width = (wk.total ? wk.rate : 0) + "%";
+      document.getElementById("statRateSub").textContent =
+        wk.total ? `완료 ${wk.done} / 전체 ${wk.total}` : "이번 주 카드 없음";
+    }
+
+    // ====== 데이터 백업 (내보내기 / 가져오기) ======
+    function exportData() {
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith("journal:") || k.startsWith("kanban:"))) {
+          data[k] = JSON.parse(localStorage.getItem(k));
+        }
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "retro-backup-" + toKey(todayStart) + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        let data;
+        try { data = JSON.parse(e.target.result); }
+        catch (err) { alert("파일을 읽을 수 없어요. 올바른 백업 JSON인지 확인해 주세요."); return; }
+        // 옛 백업(todos:)도 받아들인 뒤 보드로 이전한다
+        const keys = Object.keys(data).filter((k) => k.startsWith("journal:") || k.startsWith("kanban:") || k.startsWith("todos:"));
+        if (keys.length === 0) { alert("가져올 항목이 없어요."); return; }
+        if (!confirm(keys.length + "개 항목을 가져옵니다. 같은 날짜의 기존 데이터는 덮어써져요. 계속할까요?")) return;
+        keys.forEach((k) => localStorage.setItem(k, JSON.stringify(data[k])));
+        migrateTodosToBoard(); // 옛 할 일 데이터를 보드 카드로 흡수
+        alert(keys.length + "개 항목을 복원했어요.");
+        loadDay();
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById("exportBtn").onclick = exportData;
+    const importFile = document.getElementById("importFile");
+    document.getElementById("importBtn").onclick = () => importFile.click();
+    importFile.onchange = (e) => {
+      if (e.target.files[0]) { importData(e.target.files[0]); e.target.value = ""; }
+    };
+
+    // ---- 초기 실행 ----
+    migrateTodosToBoard();  // 옛 "할 일" 목록을 보드로 이전
+    carryOverIncomplete();  // 미완료 카드 자동 이월
+    loadDay();
+  </script>
+</body>
+</html>
