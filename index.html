@@ -577,6 +577,17 @@
     },
   };
 
+  // ===== logger: 구조화 JSON-line 로그 (.agent-rules.md §3 · 개발/디버깅용) ===========
+  // 한 줄 = 한 이벤트(JSON). 콘솔에만 출력하며 의존성 0.
+  // Toast(사용자 알림)와 역할이 다르다 — 이건 개발자가 콘솔/로그로 디버깅할 때 쓴다.
+  // 필수 필드(ts·module·level·event)는 .agent-rules.md 포맷을 따른다.
+  // ts는 epoch millis(Date.now())를 쓴다 — toISOString()은 절대 규칙(ADR-004)으로 금지.
+  const logger = {
+    emit(level, o) { try { console.log(JSON.stringify({ level, ...o })); } catch { /* 로깅 실패는 무시 */ } },
+    info(o) { this.emit("info", o); },
+    error(o) { this.emit("error", o); },
+  };
+
   // ===== Theme: 다크/라이트 ========================================================
   const Theme = {
     apply(theme) {
@@ -614,6 +625,9 @@
   // ===== 단일 렌더 경로 ===========================================================
   // renderAll: 파생 데이터(recorded)를 한 번만 계산하고 모든 영역을 다시 그린다.
   function renderAll() {
+    // 구조화 로그: 렌더가 어떤 날짜(input)로 호출됐는지 한 줄로 남긴다 — 렌더 디버깅의 1차 단서.
+    // (요청 템플릿의 toISOString→Date.now(), 미정의 x→실제 입력인 viewDate 키로 조정)
+    logger.info({ ts: Date.now(), module: "core", event: "process_input", input: DateUtil.toKey(App.state.viewDate) });
     App.state.recorded = computeRecordedDays();
     Header.render();
     Board.renderCarryNote();
