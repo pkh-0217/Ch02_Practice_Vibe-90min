@@ -113,20 +113,34 @@
 
 - 데이터는 **브라우저·기기에 종속**된다. 동기화 없음. 브라우저 데이터 삭제 시 소실 → `Backup` JSON으로 대비.
 - 날짜 키가 로컬 자정 기준이라 **다른 타임존 기기 간 이동에 취약**(ADR-004).
-- 회귀의 1차 안전망으로 **가드레일 테스트**(`tests/guardrails.test.js`)가 있다 — 절대 규칙·JS 문법을 커밋 직후 자동 검사(ADR-005, 8절). 단 런타임/DOM 동작까지 보는 통합 테스트는 아니라 **깊은 회귀 검증은 여전히 수동**(`run`/`verify`).
+- 회귀의 1차 안전망으로 **가드레일 테스트**(`tests/guardrails.test.js`)가 있다 — 절대 규칙·JS 문법을 커밋 직후 자동 검사(ADR-005, 8.1절). 커밋 **직전**엔 **자동 코드 리뷰 훅**이 staged diff를 Claude에게 리뷰시킨다(ADR-006, 8.2절). 단 런타임/DOM 동작까지 보는 통합 테스트는 아니라 **깊은 회귀 검증은 여전히 수동**(`run`/`verify`).
 - `index.html`이 커질수록 탐색 비용 증가 — 모듈 경계(`// ===== 모듈명 =====` 주석)를 깨지 말 것.
 
 ---
 
-## 8. 검증 루프 (가드레일 + 커밋 훅) — ADR-005
+## 8. 검증 루프 (커밋 전 리뷰 + 커밋 후 가드레일)
 
 > 코드를 읽으면 알 수 있는 시그니처 대신 **흐름·계약·제약**만 적는다.
+> 두 훅이 git commit을 사이에 두고 짝을 이룬다: **PreToolUse(사전 리뷰) → commit → PostToolUse(사후 가드레일)**. 둘 다 exit 2 출력을 Claude 컨텍스트로 되돌리는 같은 메커니즘을 쓴다.
+
+### 8.1 커밋 후 가드레일 테스트 — ADR-005
 
 - **무엇을 검증하나** — `tests/guardrails.test.js`(Node 내장 `node:test`)가 CLAUDE.md 절대 규칙을 실행 가능한 검사로 인코딩한다: ① 인라인 `<script>` 문법(`node --check`) ② `localStorage` 직접 호출은 `Store` 안에서만 ③ 외부 CDN/스크립트 src·`package.json` 없음(단일 파일 유지) ④ `.toISOString()` 미사용(ADR-004) ⑤ 필수 모듈/렌더 경로 존재.
 - **언제 도나** — Claude Code `PostToolUse(Bash)` 훅(`.claude/settings.json`)이 `git commit`을 감지하면 `.claude/hooks/post-commit-validate.mjs`가 `node --test`를 실행한다. `if: "Bash(git *)"`로 git 명령에만 훅을 띄우고, 정확한 commit 판별은 스크립트가 한다(`git ... commit`).
 - **실패하면** — 훅이 exit 2 + 실패 출력을 stderr로 내보낸다. PostToolUse의 exit 2는 그 출력을 **Claude 컨텍스트로 되돌려**, Claude가 스스로 고친 뒤 다시 커밋하게 만든다(자기수정 루프).
 - **제약** — 의존성 0(Node 내장만)이라 ADR-001을 supersede하지 않는다. 정적·텍스트 기반 검사라 런타임/DOM 회귀는 못 잡는다. 가드레일이 모듈 선언·`<script>` 형태를 가정하므로 큰 리팩터 시 테스트도 함께 갱신한다.
-- **활성화** — 세션 시작 시 `.claude/settings.json`이 없었다면 훅 watcher가 즉시 인식하지 못할 수 있다. `/hooks`를 한 번 열거나 Claude Code를 재시작하면 활성화된다.
+
+### 8.2 커밋 전 자동 코드 리뷰 — ADR-006
+
+- **무엇을** — git commit **직전**에 staged diff를 Claude가 한 번 리뷰하게 강제한다(절대 규칙 위반·명백한 버그·시크릿/디버그 잔재). 가드레일(8.1)이 못 하는 **판단형 리뷰**를 보완한다.
+- **어떻게(핵심 트릭)** — 훅은 셸이라 스스로 LLM 리뷰를 못 한다. `PreToolUse(Bash)` 훅 `.claude/hooks/pre-commit-review.mjs`가 commit을 감지해 **exit 2로 커밋을 한 번 막고**, diff를 stderr로 **Claude 컨텍스트에 되돌려** "리뷰하라"고 지시한다. Claude가 리뷰를 보고하고 같은 커밋을 재실행하면 통과한다.
+- **무한 루프 방지** — diff의 sha1 해시를 임시 마커 파일(`tmpdir`, 프로젝트 경로별)에 적는다. 마커가 현재 diff와 일치하면(직전에 리뷰함) 통과시키고 마커를 지운다. diff가 바뀌면(리뷰 후 수정) 해시가 달라져 자동 재리뷰(자기수정). 마커 30분 만료.
+- **fail-open** — 훅 자신의 오류로 커밋을 막지 않는다(예외/git 실패 시 조용히 exit 0). friction이지 게이트키퍼 장애점이 되어선 안 된다.
+- **노출/판별** — `if: "Bash(git *)"`로 git 명령에만 훅을 띄우고, 정확한 commit 판별과 `-a/--amend` diff 선택은 스크립트가 한다(8.1과 동일 패턴).
+- **제약** — 리뷰 품질은 Claude 판단에 의존(비결정론). 결정론·재현 검사는 8.1(가드레일)이 맡아 상호보완한다. 의존성 0(Node 내장).
+
+### 활성화 (8.1·8.2 공통)
+세션 시작 시 `.claude/settings.json`의 해당 훅이 없었다면 watcher가 즉시 인식하지 못할 수 있다. `/hooks`를 한 번 열거나 Claude Code를 재시작하면 활성화된다.
 
 ## 9. 관련 문서
 

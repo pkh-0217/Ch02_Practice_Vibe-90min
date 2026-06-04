@@ -31,7 +31,8 @@ node --test                       # tests/*.test.js 실행 — 절대 규칙·JS
 ```
 
 > 빌드 / lint / typecheck 단계는 **없다(의도적)**. `package.json`도 없다 — npm·번들러·프레임워크 추가는 절대 규칙 위반.
-> 단 **검증용 가드레일 테스트는 Node 내장(`node --test`)만** 쓴다(의존성 0이라 절대 규칙과 충돌하지 않음). 커밋하면 `.claude/hooks/post-commit-validate.mjs` 훅이 자동 실행되고, 실패 출력이 컨텍스트로 돌아와 자기수정 루프가 된다 (ADR-005 · `@.claude/docs/architecture.md` 8절).
+> 단 **검증용 가드레일 테스트는 Node 내장(`node --test`)만** 쓴다(의존성 0이라 절대 규칙과 충돌하지 않음). 커밋하면 `.claude/hooks/post-commit-validate.mjs` 훅이 자동 실행되고, 실패 출력이 컨텍스트로 돌아와 자기수정 루프가 된다 (ADR-005 · `@.claude/docs/architecture.md` 8.1절).
+> 그리고 커밋 **직전**엔 `.claude/hooks/pre-commit-review.mjs`(PreToolUse) 훅이 staged diff를 Claude에게 자동 코드 리뷰시킨다 (ADR-006 · 8.2절). 커밋이 한 번 보류되며 — 리뷰를 보고한 뒤 **같은 git commit을 다시 실행**하면 통과한다. 차단할 문제가 있으면 고치고 재시도(수정하면 자동 재리뷰).
 
 ---
 
@@ -45,8 +46,9 @@ index.html  ← 전부 여기 한 파일 (<style> + <body> + <script>)
 vibe-notes.md   실습 회고 노트
 .env.example    환경변수 템플릿 (현재는 자리표시자 — 백엔드 도입 시 사용)
 tests/guardrails.test.js                  가드레일 테스트(절대 규칙·문법) — Node 내장 러너, 의존성 0
+.claude/hooks/pre-commit-review.mjs       커밋 전 Claude 자동 코드 리뷰 훅 (ADR-006)
 .claude/hooks/post-commit-validate.mjs    커밋 후 가드레일 자동 실행 훅 (ADR-005)
-.claude/settings.json                     PostToolUse 훅 설정 (공유 설정 — 커밋됨)
+.claude/settings.json                     Pre/PostToolUse 훅 설정 (공유 설정 — 커밋됨)
 ```
 
 **핵심 모듈** (모두 `<script>` 안의 전역 객체):
@@ -85,7 +87,8 @@ tests/guardrails.test.js                  가드레일 테스트(절대 규칙·
 > 90분 Vibe 실습으로 기능은 완성됨. 아래는 외부 공개 전 보완 항목 (`vibe-notes.md` 참조).
 
 - [x] 커밋 후 검증 루프 도입 — 가드레일 테스트 + `PostToolUse` 훅 (ADR-005). **활성화**: `/hooks`를 한 번 열거나 Claude Code 재시작(세션 시작 시 `settings.json`이 없었기 때문).
-- [ ] 코드 리뷰 / 리팩터 미실시 — 외부 사용자 공개 전 점검 필요
+- [x] 커밋 **전** 자동 코드 리뷰 friction 도입 — `PreToolUse(Bash git commit)` 훅이 staged diff를 Claude에게 리뷰시킨다 (ADR-006). **활성화**: `/hooks` 한 번 열기 또는 재시작.
+- [ ] 코드 리뷰 / 리팩터 미실시 — 외부 사용자 공개 전 점검 필요(위 훅은 *신규 커밋분*만 리뷰 — 기존 코드 전체 1회 점검은 별개)
 - [ ] UI/UX 다듬기 미실시
 - [ ] 공개 배포하려면 API 키를 브라우저에서 분리하고 백엔드 프록시 도입
 
