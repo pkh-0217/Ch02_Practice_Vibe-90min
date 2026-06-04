@@ -1,19 +1,47 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
   <title>오늘의 목표 & 회고</title>
   <style>
+    /* =========================================================================
+       팔레트 — 모든 색을 CSS 변수로 모아두면 다크모드를 한 곳에서 바꿀 수 있다.
+       ========================================================================= */
     :root {
       --bg: #f4f5f7;
       --card: #ffffff;
       --accent: #4f46e5;
+      --accent-weak: #eef0ff;   /* accent 톤의 옅은 박스 배경 */
+      --accent-line: #dcdffb;
       --text: #1f2430;
       --muted: #8a90a2;
       --done: #b8bdc9;
       --border: #e6e8ee;
+      --soft: #f7f8fa;          /* 칸반 컬럼 / 통계 카드 배경 */
+      --hover: #eef0f5;         /* 버튼 hover */
+      --chip: #e6e8ee;          /* 카운트 칩 / 진행바 트랙 */
+      --drop: #e9ebff;          /* 드롭 영역 하이라이트 */
+      --shadow: 0 1px 2px rgba(20, 24, 40, 0.04);
     }
+    :root[data-theme="dark"] {
+      --bg: #14161b;
+      --card: #1e2128;
+      --accent: #818cf8;
+      --accent-weak: #232645;
+      --accent-line: #34386a;
+      --text: #e6e8ee;
+      --muted: #9aa0b0;
+      --done: #565d6d;
+      --border: #2c2f37;
+      --soft: #23262d;
+      --hover: #2a2e36;
+      --chip: #2c313a;
+      --drop: #2a2e55;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -21,17 +49,24 @@
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
+      transition: background 0.2s, color 0.2s;
     }
-    .wrap {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 32px 20px 80px;
-    }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 32px 20px 80px; }
     header h1 { margin: 0 0 12px; font-size: 1.6rem; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+    /* 헤더 상단 줄: 제목 + 도구 버튼(테마/설정) */
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .topbar-tools { display: flex; gap: 8px; }
+    .icon-btn {
+      width: 40px; height: 40px; border: 1px solid var(--border); background: var(--card);
+      border-radius: 10px; font-size: 1.1rem; cursor: pointer; color: var(--text);
+    }
+    .icon-btn:hover { background: var(--hover); }
 
     /* 2열 대시보드 레이아웃 */
     .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-    .dashboard .span-all { grid-column: 1 / -1; } /* 전체 너비로 펼치는 카드 */
+    .dashboard .span-all { grid-column: 1 / -1; }
     @media (max-width: 760px) { .dashboard { grid-template-columns: 1fr; } }
 
     /* 날짜 이동 네비게이션 */
@@ -41,7 +76,7 @@
       border: 1px solid var(--border); background: var(--card);
       border-radius: 9px; font-size: 1rem; cursor: pointer; color: var(--text);
     }
-    .navbtn:hover:not(:disabled) { background: #eef0f5; }
+    .navbtn:hover:not(:disabled) { background: var(--hover); }
     .navbtn:disabled { opacity: 0.35; cursor: not-allowed; }
     .datebox { display: flex; align-items: baseline; gap: 8px; }
     .date { color: var(--text); font-weight: 600; }
@@ -51,16 +86,18 @@
       border: 1px solid var(--border); background: var(--card);
       border-radius: 9px; cursor: pointer; color: var(--muted); font-size: 0.9rem;
     }
-    .today-btn:hover { background: #eef0f5; }
+    .today-btn:hover { background: var(--hover); }
 
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 22px;
-      margin-bottom: 0;
+      box-shadow: var(--shadow);
     }
     .card h2 { margin: 0 0 16px; font-size: 1.15rem; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+    .card-head h2 { margin: 0; }
     .save-btn {
       padding: 11px 18px; border: none; border-radius: 9px;
       background: var(--accent); color: #fff; font-size: 1rem; cursor: pointer;
@@ -72,24 +109,43 @@
     }
     .link-btn:hover { text-decoration: underline; }
 
+    /* AI 버튼 (✨) */
+    .ai-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 12px; border: 1px solid var(--accent-line); background: var(--accent-weak);
+      color: var(--accent); border-radius: 9px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    }
+    .ai-btn:hover { filter: brightness(0.98); }
+    .ai-btn:disabled { opacity: 0.55; cursor: progress; }
+    .ai-out {
+      display: none; margin-top: 14px; padding: 14px 16px;
+      background: var(--accent-weak); border: 1px solid var(--accent-line);
+      border-radius: 10px; font-size: 0.9rem; white-space: pre-wrap; color: var(--text);
+    }
+    .ai-out.show { display: block; }
+    .ai-out .ai-err { color: #e5484d; }
+    .spinner {
+      width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; display: inline-block; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* 이월 안내 */
     .carry-note {
       display: none;
-      background: #eef0ff; color: #4338ca;
-      border: 1px solid #dcdffb; border-radius: 9px;
+      background: var(--accent-weak); color: var(--accent);
+      border: 1px solid var(--accent-line); border-radius: 9px;
       padding: 10px 14px; font-size: 0.9rem; margin-bottom: 14px;
     }
 
     /* 칸반 보드 */
     .kb-input { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .kb-input select {
+    .kb-input select, .kb-input input {
       padding: 11px 12px; border: 1px solid var(--border);
-      border-radius: 9px; font-size: 0.95rem; background: var(--card); cursor: pointer;
+      border-radius: 9px; font-size: 0.95rem; background: var(--card); color: var(--text);
     }
-    .kb-input input {
-      flex: 1; min-width: 140px; padding: 11px 14px;
-      border: 1px solid var(--border); border-radius: 9px; font-size: 1rem;
-    }
+    .kb-input select { cursor: pointer; }
+    .kb-input input { flex: 1; min-width: 140px; padding: 11px 14px; font-size: 1rem; }
     .kb-input button {
       padding: 11px 18px; border: none; border-radius: 9px;
       background: var(--accent); color: #fff; font-size: 1rem; cursor: pointer;
@@ -97,38 +153,51 @@
     .kb-input button:hover { opacity: 0.9; }
 
     .kb-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .kb-col { background: #f7f8fa; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+    .kb-col { background: var(--soft); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
     .kb-col-head { font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-    .kb-count { background: #e6e8ee; color: var(--muted); border-radius: 20px; font-size: 0.75rem; padding: 1px 8px; font-weight: 600; }
+    .kb-count { background: var(--chip); color: var(--muted); border-radius: 20px; font-size: 0.75rem; padding: 1px 8px; font-weight: 600; }
     .kb-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; border-radius: 9px; padding: 2px; }
-    .kb-list.drop-hover { background: #e9ebff; outline: 2px dashed var(--accent); }
+    .kb-list.drop-hover { background: var(--drop); outline: 2px dashed var(--accent); }
     .kb-empty { color: var(--done); font-size: 0.82rem; text-align: center; padding: 14px 0; }
 
-    .kb-card { background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; cursor: grab; }
-    .kb-card:hover { border-color: var(--accent); }
+    .kb-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px;
+      cursor: grab; animation: cardIn 0.18s ease; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .kb-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
     .kb-card.dragging { opacity: 0.5; }
     .kb-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .kb-tag { font-size: 0.7rem; font-weight: 600; border-radius: 20px; padding: 2px 8px; }
     .kb-tag.work { background: #ffe9d6; color: #b45309; }
     .kb-tag.study { background: #dbeafe; color: #1d4ed8; }
-    .kb-tag.general { background: #eceef3; color: #5b6172; }
+    .kb-tag.general { background: var(--chip); color: var(--muted); }
     .kb-carry { font-size: 0.68rem; color: var(--accent); }
     .kb-text { font-size: 0.92rem; word-break: break-word; }
     .kb-meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
-    .kb-due { font-size: 0.72rem; color: var(--muted); background: #f0f1f5; border-radius: 6px; padding: 1px 7px; }
+    .kb-due { font-size: 0.72rem; color: var(--muted); background: var(--soft); border-radius: 6px; padding: 1px 7px; }
     .kb-due.overdue { background: #fdecec; color: #e5484d; font-weight: 600; }
     .kb-memo-icon { font-size: 0.72rem; color: var(--muted); }
+    /* 카드 하단 상태 이동 버튼 (마우스 드래그 없이도, 터치·키보드로 이동) */
+    .kb-move { display: flex; justify-content: space-between; gap: 6px; margin-top: 8px; }
+    .kb-move button {
+      flex: 1; padding: 4px 0; font-size: 0.78rem; line-height: 1;
+      border: 1px solid var(--border); background: var(--card); color: var(--muted);
+      border-radius: 7px; cursor: pointer;
+    }
+    .kb-move button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+    .kb-move button:disabled { opacity: 0.3; cursor: default; }
     .kb-hint { margin-top: 12px; font-size: 0.82rem; color: var(--muted); }
 
     /* 통계 */
     .stats { display: flex; gap: 16px; flex-wrap: wrap; }
     .stat {
       flex: 1; min-width: 160px;
-      background: #f7f8fa; border: 1px solid var(--border);
+      background: var(--soft); border: 1px solid var(--border);
       border-radius: 12px; padding: 18px; text-align: center;
     }
     .stat-value { font-size: 1.9rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
-    .stat-bar { height: 8px; background: #e6e8ee; border-radius: 20px; margin: 10px 0 8px; overflow: hidden; }
+    .stat-bar { height: 8px; background: var(--chip); border-radius: 20px; margin: 10px 0 8px; overflow: hidden; }
     .stat-bar-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.4s; }
     .stat-label { font-size: 0.9rem; color: var(--text); margin-top: 6px; font-weight: 600; }
     .stat-sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
@@ -138,18 +207,15 @@
     /* 회고 저널 */
     .journal label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 0.95rem; }
     .journal textarea {
-      width: 100%;
-      min-height: 64px;
-      padding: 11px 14px;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      font-family: inherit;
-      font-size: 1rem;
-      resize: vertical;
+      width: 100%; min-height: 64px; padding: 11px 14px;
+      border: 1px solid var(--border); border-radius: 9px;
+      font-family: inherit; font-size: 1rem; resize: vertical;
+      background: var(--card); color: var(--text);
     }
-    .save-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+    .save-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
     .saved-msg { color: #22a06b; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; }
     .saved-msg.show { opacity: 1; }
+    .autosave-hint { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
 
     /* 기록 달력 */
     .cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -159,13 +225,12 @@
     .cal-head.sun { color: #e5484d; }
     .cal-head.sat { color: #3b82f6; }
     .cal-day {
-      position: relative;
-      min-height: 42px;
+      position: relative; min-height: 42px;
       display: flex; align-items: center; justify-content: center;
       border-radius: 9px; font-size: 0.9rem; cursor: pointer;
-      border: 1px solid transparent; color: var(--text);
+      border: 1px solid transparent; color: var(--text); background: none;
     }
-    .cal-day:hover { background: #eef0f5; }
+    .cal-day:hover { background: var(--hover); }
     .cal-day.blank, .cal-day.blank:hover { cursor: default; background: none; }
     .cal-day.future, .cal-day.future:hover { color: var(--done); cursor: not-allowed; background: none; }
     .cal-day.today { border-color: var(--accent); font-weight: 700; }
@@ -185,10 +250,10 @@
       border: 1px solid var(--border); background: var(--card);
       border-radius: 9px; cursor: pointer; color: var(--text); font-size: 0.95rem;
     }
-    .tool-btn:hover { background: #eef0f5; }
+    .tool-btn:hover { background: var(--hover); }
     .tools .hint { color: var(--muted); font-size: 0.85rem; }
 
-    /* 카드 상세 모달 */
+    /* 모달 (카드 상세 / 설정 공용) */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(20, 24, 40, 0.45);
       display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
@@ -196,15 +261,15 @@
     .modal-overlay[hidden] { display: none; }
     .modal {
       background: var(--card); border-radius: 14px; width: 100%; max-width: 460px;
-      max-height: 90vh; overflow-y: auto; padding: 22px;
+      max-height: 90vh; overflow-y: auto; padding: 22px; animation: cardIn 0.18s ease;
     }
     .modal-head { display: flex; align-items: center; justify-content: space-between; }
     .modal-title { font-size: 1.1rem; font-weight: 700; }
     .modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted); line-height: 1; }
     .modal label { display: block; font-weight: 600; font-size: 0.85rem; margin: 14px 0 6px; }
-    .modal input[type="text"], .modal textarea, .modal select, .modal input[type="time"] {
+    .modal input[type="text"], .modal input[type="password"], .modal textarea, .modal select, .modal input[type="time"] {
       width: 100%; padding: 10px 12px; border: 1px solid var(--border);
-      border-radius: 9px; font-size: 0.95rem; font-family: inherit; background: var(--card);
+      border-radius: 9px; font-size: 0.95rem; font-family: inherit; background: var(--card); color: var(--text);
     }
     .modal textarea { min-height: 70px; resize: vertical; }
     .modal-row { display: flex; gap: 12px; }
@@ -218,23 +283,42 @@
     .modal-retro { display: flex; gap: 6px; flex-wrap: wrap; }
     .modal-retro button {
       flex: 1; min-width: 90px; padding: 8px 0; border: 1px dashed var(--accent);
-      background: #eef0ff; color: var(--accent); border-radius: 8px; cursor: pointer; font-size: 0.83rem;
+      background: var(--accent-weak); color: var(--accent); border-radius: 8px; cursor: pointer; font-size: 0.83rem;
     }
-    .modal-retro button:hover { background: #e0e3ff; }
+    .modal-retro button:hover { filter: brightness(0.98); }
     .modal-foot { display: flex; justify-content: space-between; margin-top: 22px; }
     .modal-del { background: none; border: 1px solid #f3c0c2; color: #e5484d; border-radius: 9px; padding: 10px 16px; cursor: pointer; }
     .modal-del:hover { background: #fdecec; }
     .modal-save { background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 10px 20px; cursor: pointer; font-size: 0.95rem; }
     .modal-save:hover { opacity: 0.9; }
+    .modal-note { font-size: 0.82rem; color: var(--muted); margin: 8px 0 0; }
+    .modal-warn { font-size: 0.82rem; color: #b45309; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 9px 11px; margin-top: 10px; }
+    :root[data-theme="dark"] .modal-warn { color: #fbbf24; background: #2a230f; border-color: #5a4a1a; }
+
+    /* 토스트 */
+    .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 80; align-items: center; }
+    .toast {
+      background: var(--text); color: var(--card); padding: 11px 18px; border-radius: 10px;
+      font-size: 0.9rem; box-shadow: 0 4px 16px rgba(0,0,0,0.2); animation: toastIn 0.2s ease;
+      max-width: 80vw;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .toast.out { opacity: 0; transition: opacity 0.3s; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>오늘의 목표 보드 & 회고</h1>
+      <div class="topbar">
+        <h1>오늘의 목표 보드 &amp; 회고</h1>
+        <div class="topbar-tools">
+          <button id="themeBtn" class="icon-btn" title="다크/라이트 전환" aria-label="다크/라이트 모드 전환">🌙</button>
+          <button id="settingsBtn" class="icon-btn" title="설정" aria-label="설정 열기">⚙️</button>
+        </div>
+      </div>
       <div class="datenav">
-        <button id="prevDay" class="navbtn" title="이전 날">◀</button>
-        <button id="nextDay" class="navbtn" title="다음 날">▶</button>
+        <button id="prevDay" class="navbtn" title="이전 날" aria-label="이전 날">◀</button>
+        <button id="nextDay" class="navbtn" title="다음 날" aria-label="다음 날">▶</button>
         <div class="datebox">
           <span class="date" id="todayLabel"></span>
           <span class="rel" id="relLabel"></span>
@@ -246,25 +330,32 @@
     <div class="dashboard">
     <!-- 칸반 보드: 오늘의 할 일 · 핵심 업무 · 학습 목표 -->
     <section class="card span-all">
-      <h2>🗂️ 오늘의 목표 보드</h2>
+      <div class="card-head">
+        <h2>🗂️ 오늘의 목표 보드</h2>
+        <button class="ai-btn" id="aiPrioritizeBtn" title="AI가 '할 일' 카드의 처리 순서를 추천해요">✨ 우선순위 추천</button>
+      </div>
       <div class="carry-note" id="carryNote"></div>
       <div class="kb-input">
-        <select id="kbCat">
+        <select id="kbCat" aria-label="카드 분류">
           <option value="work">핵심 업무</option>
           <option value="study">학습 목표</option>
           <option value="general">일반</option>
         </select>
-        <input id="kbText" type="text" placeholder="할 일·목표를 입력하고 Enter" />
+        <input id="kbText" type="text" placeholder="할 일·목표를 입력하고 Enter" aria-label="할 일 입력" />
         <button id="kbAddBtn">추가</button>
       </div>
       <button class="link-btn" id="carryBtn">↩ 어제 못 끝낸 카드 가져오기</button>
+      <div class="ai-out" id="aiPrioritizeOut"></div>
       <div class="kb-board" id="kbBoard"></div>
-      <div class="kb-hint">카드를 끌어서 옮기거나, 클릭하면 메모·마감 시간·회고 연결을 설정할 수 있어요.</div>
+      <div class="kb-hint">카드를 끌어 옮기거나 카드 아래 ◀ ▶ 버튼으로 상태를 바꿀 수 있어요. 카드를 누르면 메모·마감 시간·회고 연결을 설정할 수 있어요.</div>
     </section>
 
     <!-- 통계 -->
     <section class="card span-all">
-      <h2>📊 통계</h2>
+      <div class="card-head">
+        <h2>📊 통계</h2>
+        <button class="ai-btn" id="aiInsightBtn" title="최근 7일 기록으로 AI 코칭 인사이트를 받아요">✨ 주간 인사이트</button>
+      </div>
       <div class="stats">
         <div class="stat">
           <div class="stat-value" id="statRate">—</div>
@@ -278,11 +369,15 @@
           <div class="stat-sub" id="statStreakSub"></div>
         </div>
       </div>
+      <div class="ai-out" id="aiInsightOut"></div>
     </section>
 
     <!-- 매일 회고 -->
     <section class="card journal">
-      <h2>📔 오늘의 회고</h2>
+      <div class="card-head">
+        <h2>📔 오늘의 회고</h2>
+        <button class="ai-btn" id="aiDraftBtn" title="오늘 보드 상태로 AI가 회고 초안을 만들어요">✨ 회고 초안</button>
+      </div>
       <label for="good">오늘 잘한 것</label>
       <textarea id="good" placeholder="작은 것이라도 좋아요"></textarea>
 
@@ -295,6 +390,7 @@
       <div class="save-row">
         <button class="save-btn" id="saveJournalBtn">회고 저장</button>
         <span class="saved-msg" id="savedMsg">저장됨 ✓</span>
+        <span class="autosave-hint">입력하면 자동 저장돼요</span>
       </div>
     </section>
 
@@ -302,8 +398,8 @@
     <section class="card">
       <h2>📅 기록 달력</h2>
       <div class="cal-nav">
-        <button id="calPrev" class="navbtn" title="이전 달">◀</button>
-        <button id="calNext" class="navbtn" title="다음 달">▶</button>
+        <button id="calPrev" class="navbtn" title="이전 달" aria-label="이전 달">◀</button>
+        <button id="calNext" class="navbtn" title="다음 달" aria-label="다음 달">▶</button>
         <span class="cal-title" id="calTitle"></span>
       </div>
       <div class="cal-grid" id="calGrid"></div>
@@ -321,15 +417,14 @@
       </div>
     </section>
     </div>
-
   </div>
 
   <!-- 카드 상세 모달 -->
   <div class="modal-overlay" id="cardModal" hidden>
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cardModalTitle">
       <div class="modal-head">
-        <span class="modal-title">카드 상세</span>
-        <button class="modal-close" id="modalClose" title="닫기">×</button>
+        <span class="modal-title" id="cardModalTitle">카드 상세</span>
+        <button class="modal-close" id="modalClose" title="닫기" aria-label="닫기">×</button>
       </div>
       <label for="mText">내용</label>
       <input id="mText" type="text" />
@@ -368,228 +463,334 @@
     </div>
   </div>
 
-  <script>
-    // ---- 저장소 헬퍼 ----
-    const load = (key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-    const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-    const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  <!-- 설정 모달 -->
+  <div class="modal-overlay" id="settingsModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-head">
+        <span class="modal-title" id="settingsTitle">⚙️ 설정</span>
+        <button class="modal-close" id="settingsClose" title="닫기" aria-label="닫기">×</button>
+      </div>
 
-    // ---- 날짜 처리 ----
-    // 로컬 자정 기준으로 "YYYY-MM-DD" 키를 만든다 (toISOString은 UTC라 자정 근처에 하루가 어긋날 수 있음)
-    const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-    const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
-    const toKey = (d) => {
+      <label for="setKey">Anthropic API 키</label>
+      <input id="setKey" type="password" placeholder="sk-ant-..." autocomplete="off" />
+      <p class="modal-note">키는 <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>에서 발급해요. ✨ AI 기능에만 쓰이며, 키가 없어도 나머지 기능은 모두 동작해요.</p>
+
+      <label for="setModel">AI 모델</label>
+      <select id="setModel">
+        <option value="claude-haiku-4-5-20251001">Haiku 4.5 — 빠르고 저렴 (기본)</option>
+        <option value="claude-sonnet-4-6">Sonnet 4.6 — 균형</option>
+        <option value="claude-opus-4-8">Opus 4.8 — 최고 품질</option>
+      </select>
+
+      <div class="modal-warn">
+        ⚠️ 이 키는 브라우저(localStorage)에 저장되고 API를 직접 호출해요. <b>개인 로컬 사용 전용</b>이며, 이 페이지를 인터넷에 공개 배포하면 키가 노출될 수 있어요.
+      </div>
+
+      <div class="modal-foot">
+        <button class="modal-del" id="setClear">키 삭제</button>
+        <button class="modal-save" id="setSave">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 -->
+  <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+  <script>
+  /* ===========================================================================
+     데이터 모델 (localStorage 키 규칙)
+     ---------------------------------------------------------------------------
+     kanban:YYYY-MM-DD   → Card[]      카드 한 장 = {
+                                          id:string, text:string,
+                                          cat:'work'|'study'|'general',
+                                          status:0|1|2,   // 할 일 / 진행 중 / 완료
+                                          memo:string, due:string('HH:MM'|''),
+                                          carried:boolean // 전날에서 이월된 카드
+                                        }
+     journal:YYYY-MM-DD  → {good, bad, tomorrow}  회고 텍스트
+     carried:YYYY-MM-DD  → '1'         그날 자동 이월을 이미 수행했다는 플래그
+     settings:theme      → 'light'|'dark'
+     settings:anthropicKey, settings:model  → ✨ AI 설정
+     todos:YYYY-MM-DD    → (구버전) 가져오기 시 보드 카드로 1회 마이그레이션
+     =========================================================================== */
+
+  // ===== Store: localStorage 입출력 한 곳에 모음 =====================================
+  const Store = {
+    load: (key, fallback) => {
+      try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+      catch { return fallback; }
+    },
+    save: (key, value) => localStorage.setItem(key, JSON.stringify(value)),
+    remove: (key) => localStorage.removeItem(key),
+    getStr: (key, fallback) => localStorage.getItem(key) ?? fallback,
+    setStr: (key, value) => localStorage.setItem(key, value),
+    // prefix로 시작하는 모든 키를 훑어 (key, parsedValue)를 콜백에 넘긴다
+    eachKey: (fn) => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) fn(k); } },
+    newId: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+  };
+
+  // ===== DateUtil: 날짜를 로컬 자정 기준 'YYYY-MM-DD' 키로 다룬다 =====================
+  // (toISOString은 UTC라 자정 근처에 하루가 어긋날 수 있어 직접 만든다)
+  const DateUtil = {
+    startOfDay: (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; },
+    startOfMonth: (d) => new Date(d.getFullYear(), d.getMonth(), 1),
+    toKey: (d) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
       return `${y}-${m}-${day}`;
-    };
+    },
+    nowHHMM: () => { const n = new Date(); return String(n.getHours()).padStart(2, "0") + ":" + String(n.getMinutes()).padStart(2, "0"); },
+  };
 
-    const todayStart = startOfDay(new Date());
-    let viewDate = new Date(todayStart); // 지금 화면에 보이는 날짜
+  // ===== 칸반 상수 ================================================================
+  const KB_STATUS = ["할 일", "진행 중", "완료"];
+  const KB_ICON = ["📋", "🔄", "✅"];
+  const KB_CAT = { work: "핵심 업무", study: "학습 목표", general: "일반" };
+  const JOURNAL_FIELDS = ["good", "bad", "tomorrow"];
+  const JOURNAL_LABEL = { good: "잘한 것", bad: "아쉬운 것", tomorrow: "내일 할 것" };
 
-    // ---- 날짜에 따라 바뀌는 키/데이터 ----
-    let JOURNAL_KEY, KANBAN_KEY, journal, kanban;
-    let dragId = null;   // 드래그 중인 카드 id
-    let editingId = null; // 모달에서 편집 중인 카드 id
-    let modalStatus = 0;  // 모달에서 선택한 상태
-    const journalFields = ["good", "bad", "tomorrow"];
+  // ===== 중앙 상태 ===============================================================
+  const todayStart = DateUtil.startOfDay(new Date());
+  const App = {
+    state: {
+      viewDate: new Date(todayStart), // 화면에 보이는 날짜
+      kanban: [],                     // 현재 날짜의 카드 배열
+      journal: {},                    // 현재 날짜의 회고
+      journalKey: "", kanbanKey: "",
+      calMonth: DateUtil.startOfMonth(todayStart), // 달력에 표시 중인 달
+      recorded: new Set(),            // 기록 있는 날짜 집합 (렌더 1회당 1번만 계산해 캐시)
+      carriedCount: 0,                // 이번에 자동 이월된 카드 수
+      dragId: null,                   // 드래그 중인 카드 id
+    },
+    el: {}, // 요소 캐시
+  };
 
-    // ---- 칸반 상수 ----
-    const KB_STATUS = ["할 일", "진행 중", "완료"];
-    const KB_ICON = ["📋", "🔄", "✅"];
-    const KB_CAT = { work: "핵심 업무", study: "학습 목표", general: "일반" };
+  // ===== Toast: 가벼운 알림 =======================================================
+  const Toast = {
+    show(msg) {
+      const t = document.createElement("div");
+      t.className = "toast";
+      t.textContent = msg;
+      App.el.toastWrap.appendChild(t);
+      setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 300); }, 2400);
+    },
+  };
 
-    // ---- 요소 캐싱 ----
-    const todayLabel = document.getElementById("todayLabel");
-    const relLabel = document.getElementById("relLabel");
-    const prevBtn = document.getElementById("prevDay");
-    const nextBtn = document.getElementById("nextDay");
-    const goTodayBtn = document.getElementById("goToday");
-    const carryNote = document.getElementById("carryNote");
-    const calTitle = document.getElementById("calTitle");
-    const calGrid = document.getElementById("calGrid");
-    const calPrev = document.getElementById("calPrev");
-    const calNext = document.getElementById("calNext");
-    const kbBoard = document.getElementById("kbBoard");
-    const kbText = document.getElementById("kbText");
-    const kbCat = document.getElementById("kbCat");
-    const kbAddBtn = document.getElementById("kbAddBtn");
-    // 모달
-    const cardModal = document.getElementById("cardModal");
-    const mText = document.getElementById("mText");
-    const mCat = document.getElementById("mCat");
-    const mDue = document.getElementById("mDue");
-    const mMemo = document.getElementById("mMemo");
-    const mStatusBox = document.getElementById("mStatus");
+  // ===== Theme: 다크/라이트 ========================================================
+  const Theme = {
+    apply(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      if (App.el.themeBtn) App.el.themeBtn.textContent = theme === "dark" ? "☀️" : "🌙";
+    },
+    current() { return document.documentElement.getAttribute("data-theme"); },
+    init() {
+      const saved = Store.getStr("settings:theme", null);
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      this.apply(saved || (prefersDark ? "dark" : "light"));
+    },
+    toggle() {
+      const next = this.current() === "dark" ? "light" : "dark";
+      Store.setStr("settings:theme", next);
+      this.apply(next);
+    },
+  };
 
-    let carriedCount = 0;                    // 이번에 자동 이월된 카드 개수
-    let calMonth = startOfMonth(todayStart); // 달력에 표시 중인 달
-
-    // 선택한 날짜의 데이터를 불러오고 화면을 다시 그린다
-    function loadDay() {
-      const key = toKey(viewDate);
-      JOURNAL_KEY = "journal:" + key;
-      KANBAN_KEY = "kanban:" + key;
-      journal = load(JOURNAL_KEY, {});
-      kanban = load(KANBAN_KEY, []);
-      calMonth = startOfMonth(viewDate); // 달력을 선택한 날짜의 달로 맞춤
-      renderAll();
-    }
-
-    function renderAll() { renderHeader(); renderCalendar(); renderCarryNote(); renderKanban(); renderJournal(); }
-
-    // ====== 날짜 헤더 / 이동 ======
-    function renderHeader() {
-      todayLabel.textContent = viewDate.toLocaleDateString("ko-KR",
-        { year: "numeric", month: "long", day: "numeric", weekday: "long" });
-      const diff = Math.round((todayStart - startOfDay(viewDate)) / 86400000);
-      relLabel.textContent = diff === 0 ? "오늘" : diff === 1 ? "어제" : diff > 1 ? diff + "일 전" : "";
-      nextBtn.disabled = diff === 0; // 미래로는 이동 불가
-      goTodayBtn.style.display = diff === 0 ? "none" : "inline-block";
-    }
-
-    function shiftDay(delta) {
-      const d = new Date(viewDate);
-      d.setDate(d.getDate() + delta);
-      if (startOfDay(d) > todayStart) return; // 미래 차단
-      viewDate = d;
-      loadDay();
-    }
-
-    prevBtn.onclick = () => shiftDay(-1);
-    nextBtn.onclick = () => shiftDay(1);
-    goTodayBtn.onclick = () => { viewDate = new Date(todayStart); loadDay(); };
-
-    // ====== 데이터 이전(마이그레이션): 옛 "할 일" 목록을 보드 카드로 옮긴다 ======
-    // todos: 키를 찾아 보드의 "일반" 카드로 옮기고, 옮긴 뒤 옛 키는 삭제 (다시 옮기지 않음)
-    function migrateTodosToBoard() {
-      const todoKeys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith("todos:")) todoKeys.push(k);
+  // ===== Records: 기록 있는 날짜 집합 (보드 1장 이상 또는 회고 내용 있음) ================
+  function computeRecordedDays() {
+    const set = new Set();
+    Store.eachKey((k) => {
+      if (k.startsWith("kanban:")) {
+        const arr = Store.load(k, []);
+        if (Array.isArray(arr) && arr.length > 0) set.add(k.slice(7));
+      } else if (k.startsWith("journal:")) {
+        const obj = Store.load(k, {});
+        if (Object.values(obj).some((v) => v && String(v).trim() !== "")) set.add(k.slice(8));
       }
+    });
+    return set;
+  }
+
+  // ===== 단일 렌더 경로 ===========================================================
+  // renderAll: 파생 데이터(recorded)를 한 번만 계산하고 모든 영역을 다시 그린다.
+  function renderAll() {
+    App.state.recorded = computeRecordedDays();
+    Header.render();
+    Board.renderCarryNote();
+    Board.render();
+    Journal.render();
+    Calendar.render();   // App.state.recorded 사용 (재스캔 없음)
+    Stats.render();      // App.state.recorded 사용 (재스캔 없음)
+  }
+
+  // 데이터가 바뀐 뒤(카드 추가/이동/삭제, 회고 저장): recorded만 다시 계산하고
+  // 그에 의존하는 보드·달력·통계를 갱신한다. (예전의 이중 스캔 제거)
+  function refreshDerived() {
+    App.state.recorded = computeRecordedDays();
+    Board.render();
+    Calendar.render();
+    Stats.render();
+  }
+
+  // 선택한 날짜의 데이터를 불러오고 화면을 다시 그린다
+  function loadDay() {
+    const key = DateUtil.toKey(App.state.viewDate);
+    App.state.journalKey = "journal:" + key;
+    App.state.kanbanKey = "kanban:" + key;
+    App.state.journal = Store.load(App.state.journalKey, {});
+    App.state.kanban = Store.load(App.state.kanbanKey, []);
+    App.state.calMonth = DateUtil.startOfMonth(App.state.viewDate);
+    renderAll();
+  }
+
+  // 날짜 이동 공통 경로: 떠나기 전에 회고 자동저장을 flush 한다(미저장 손실 방지)
+  function navigateTo(date) {
+    Journal.flush();
+    App.state.viewDate = new Date(date);
+    loadDay();
+  }
+
+  // ===== Header: 날짜 표시 / 이동 ==================================================
+  const Header = {
+    render() {
+      const { viewDate } = App.state;
+      App.el.todayLabel.textContent = viewDate.toLocaleDateString("ko-KR",
+        { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+      const diff = Math.round((todayStart - DateUtil.startOfDay(viewDate)) / 86400000);
+      App.el.relLabel.textContent = diff === 0 ? "오늘" : diff === 1 ? "어제" : diff > 1 ? diff + "일 전" : "";
+      App.el.nextDay.disabled = diff === 0; // 미래로는 이동 불가
+      App.el.goToday.style.display = diff === 0 ? "none" : "inline-block";
+    },
+    shiftDay(delta) {
+      const d = new Date(App.state.viewDate);
+      d.setDate(d.getDate() + delta);
+      if (DateUtil.startOfDay(d) > todayStart) return; // 미래 차단
+      navigateTo(d);
+    },
+  };
+
+  // ===== Migrate / Carry: 구버전 이전 + 미완료 자동 이월 =============================
+  const Carry = {
+    // 구버전 "todos:" 목록을 보드의 "일반" 카드로 옮기고 옛 키는 지운다(중복 이전 방지)
+    migrateTodosToBoard() {
+      const todoKeys = [];
+      Store.eachKey((k) => { if (k.startsWith("todos:")) todoKeys.push(k); });
       todoKeys.forEach((tk) => {
         const date = tk.slice(6);
-        const oldTodos = load(tk, []);
+        const oldTodos = Store.load(tk, []);
         const boardKey = "kanban:" + date;
-        const board = load(boardKey, []);
+        const board = Store.load(boardKey, []);
         const existing = new Set(board.map((c) => c.text));
         if (Array.isArray(oldTodos)) {
           oldTodos.forEach((t) => {
             if (t && t.text && !existing.has(t.text)) {
-              board.push({
-                id: newId(), text: t.text, cat: "general",
-                status: t.done ? 2 : 0, memo: "", due: "", carried: !!t.carried,
-              });
+              board.push({ id: Store.newId(), text: t.text, cat: "general",
+                status: t.done ? 2 : 0, memo: "", due: "", carried: !!t.carried });
               existing.add(t.text);
             }
           });
-          save(boardKey, board);
+          Store.save(boardKey, board);
         }
-        localStorage.removeItem(tk);
+        Store.remove(tk);
       });
-    }
+    },
 
-    // ====== 자동 이월: 이전 보드의 미완료 카드(완료 아님)를 오늘로 가져온다 ======
-    function findPrevBoardKey(todayKey) {
+    // 오늘 이전의 가장 최근 보드 키를 찾는다 (YYYY-MM-DD는 문자열 정렬 = 날짜 정렬)
+    findPrevBoardKey(todayKey) {
       let best = null;
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith("kanban:")) {
-          const dk = k.slice(7); // YYYY-MM-DD는 문자열 정렬 = 날짜 정렬
+      Store.eachKey((k) => {
+        if (k.startsWith("kanban:")) {
+          const dk = k.slice(7);
           if (dk < todayKey && (best === null || dk > best)) best = dk;
         }
-      }
+      });
       return best;
-    }
+    },
 
-    // 이전 보드의 미완료 카드를 오늘 보드에 추가 (같은 내용이 이미 있으면 건너뜀). 추가된 개수 반환.
-    function pullIncompleteFromPrevDay() {
-      const todayKey = toKey(todayStart);
-      const prevKey = findPrevBoardKey(todayKey);
+    // 이전 보드의 미완료 카드를 오늘 보드에 추가(같은 내용 있으면 건너뜀). 추가 개수 반환.
+    pullIncompleteFromPrevDay() {
+      const todayKey = DateUtil.toKey(todayStart);
+      const prevKey = this.findPrevBoardKey(todayKey);
       if (!prevKey) return 0;
-      const incomplete = load("kanban:" + prevKey, []).filter((c) => c.status !== 2);
+      const incomplete = Store.load("kanban:" + prevKey, []).filter((c) => c.status !== 2);
       if (incomplete.length === 0) return 0;
 
-      const todayBoard = load("kanban:" + todayKey, []);
+      const todayBoard = Store.load("kanban:" + todayKey, []);
       const existing = new Set(todayBoard.map((c) => c.text));
       let added = 0;
       incomplete.forEach((c) => {
         if (!existing.has(c.text)) {
-          todayBoard.push({
-            id: newId(), text: c.text, cat: c.cat || "general",
-            status: c.status, // 진행 중 상태는 유지
-            memo: c.memo || "", due: c.due || "", carried: true,
-          });
+          todayBoard.push({ id: Store.newId(), text: c.text, cat: c.cat || "general",
+            status: c.status, memo: c.memo || "", due: c.due || "", carried: true });
           existing.add(c.text);
           added++;
         }
       });
-      if (added > 0) save("kanban:" + todayKey, todayBoard);
+      if (added > 0) Store.save("kanban:" + todayKey, todayBoard);
       return added;
-    }
+    },
 
-    // 앱 시작 시 자동 이월: 하루에 한 번만 (플래그로 중복 실행 방지)
-    function carryOverIncomplete() {
-      const flagKey = "carried:" + toKey(todayStart);
-      if (localStorage.getItem(flagKey)) return;
-      carriedCount = pullIncompleteFromPrevDay();
-      localStorage.setItem(flagKey, "1");
-    }
+    // 앱 시작 시 하루 한 번만 자동 이월(플래그로 중복 방지)
+    carryOverIncomplete() {
+      const flagKey = "carried:" + DateUtil.toKey(todayStart);
+      if (Store.getStr(flagKey, null)) return;
+      App.state.carriedCount = this.pullIncompleteFromPrevDay();
+      Store.setStr(flagKey, "1");
+    },
 
-    // "어제 못 끝낸 카드 가져오기" 버튼: 언제든 수동으로 당겨오기 (이미 가져온 건 건너뜀)
-    function manualCarry() {
-      viewDate = new Date(todayStart);
-      const added = pullIncompleteFromPrevDay();
-      carriedCount = added;
+    // "어제 못 끝낸 카드 가져오기" 버튼: 언제든 수동으로 당겨오기
+    manual() {
+      navigateTo(todayStart);
+      const added = this.pullIncompleteFromPrevDay();
+      App.state.carriedCount = added;
       loadDay();
-      if (added === 0) {
-        alert("가져올 미완료 카드가 없어요.\n(이전 날 보드가 없거나, 이미 다 가져왔거나, 모두 완료한 상태예요)");
-      }
-    }
+      if (added === 0) Toast.show("가져올 미완료 카드가 없어요.");
+      else Toast.show(`미완료 카드 ${added}개를 가져왔어요.`);
+    },
+  };
 
-    function renderCarryNote() {
-      const isToday = startOfDay(viewDate).getTime() === todayStart.getTime();
-      if (isToday && carriedCount > 0) {
-        carryNote.textContent = `어제 끝내지 못한 카드 ${carriedCount}개를 오늘 보드로 가져왔어요.`;
+  // ===== Board: 칸반 ==============================================================
+  const Board = {
+    saveCurrent() { Store.save(App.state.kanbanKey, App.state.kanban); },
+
+    isToday() { return DateUtil.startOfDay(App.state.viewDate).getTime() === todayStart.getTime(); },
+
+    // 오늘 화면에서 마감 시간이 지났고 아직 완료가 아니면 true
+    isOverdue(card) {
+      if (!card.due || card.status === 2 || !this.isToday()) return false;
+      return card.due < DateUtil.nowHHMM();
+    },
+
+    renderCarryNote() {
+      const { carryNote } = App.el;
+      if (this.isToday() && App.state.carriedCount > 0) {
+        carryNote.textContent = `어제 끝내지 못한 카드 ${App.state.carriedCount}개를 오늘 보드로 가져왔어요.`;
         carryNote.style.display = "block";
       } else {
         carryNote.style.display = "none";
       }
-    }
+    },
 
-    document.getElementById("carryBtn").onclick = manualCarry;
-
-    // ====== 칸반 보드 ======
-    function saveKanban() { save(KANBAN_KEY, kanban); }
-
-    function moveCardTo(id, newStatus) {
+    moveCardTo(id, newStatus) {
       if (id == null || newStatus < 0 || newStatus > 2) return;
-      const card = kanban.find((c) => c.id === id);
+      const card = App.state.kanban.find((c) => c.id === id);
       if (!card || card.status === newStatus) return;
       card.status = newStatus;
-      saveKanban();
-      renderKanban();
-      renderStats(); // 완료율 즉시 반영
-    }
+      this.saveCurrent();
+      refreshDerived(); // 보드 + 완료율/연속기록 즉시 반영
+    },
 
-    // 오늘 화면에서, 마감 시간이 지났고 아직 완료가 아니면 true
-    function isOverdue(card) {
-      if (!card.due || card.status === 2) return false;
-      if (startOfDay(viewDate).getTime() !== todayStart.getTime()) return false;
-      const now = new Date();
-      const nowStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-      return card.due < nowStr;
-    }
-
-    function buildCard(card) {
+    buildCard(card) {
       const el = document.createElement("div");
       el.className = "kb-card";
       el.draggable = true;
-      el.ondragstart = () => { dragId = card.id; el.classList.add("dragging"); };
+      el.tabIndex = 0; // 키보드 포커스 가능
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", `${KB_CAT[card.cat] || ""} 카드: ${card.text}. 열려면 Enter`);
+      el.ondragstart = () => { App.state.dragId = card.id; el.classList.add("dragging"); };
       el.ondragend = () => el.classList.remove("dragging");
-      el.onclick = () => openCard(card.id);
+      el.onclick = () => Modal.open(card.id);
+      el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); Modal.open(card.id); } };
 
       const top = document.createElement("div");
       top.className = "kb-card-top";
@@ -615,7 +816,7 @@
         meta.className = "kb-meta";
         if (card.due) {
           const due = document.createElement("span");
-          due.className = "kb-due" + (isOverdue(card) ? " overdue" : "");
+          due.className = "kb-due" + (this.isOverdue(card) ? " overdue" : "");
           due.textContent = "⏰ " + card.due;
           meta.appendChild(due);
         }
@@ -627,16 +828,36 @@
         }
         el.appendChild(meta);
       }
-      return el;
-    }
 
-    function renderKanban() {
-      kbBoard.innerHTML = "";
+      // 상태 이동 버튼 (드래그 없이 터치·키보드로 이동)
+      const move = document.createElement("div");
+      move.className = "kb-move";
+      const left = document.createElement("button");
+      left.type = "button"; left.textContent = "◀ 이전";
+      left.disabled = card.status === 0;
+      left.setAttribute("aria-label", "이전 상태로 이동");
+      left.onclick = (e) => { e.stopPropagation(); this.moveCardTo(card.id, card.status - 1); };
+      const right = document.createElement("button");
+      right.type = "button"; right.textContent = "다음 ▶";
+      right.disabled = card.status === 2;
+      right.setAttribute("aria-label", "다음 상태로 이동");
+      right.onclick = (e) => { e.stopPropagation(); this.moveCardTo(card.id, card.status + 1); };
+      move.append(left, right);
+      el.appendChild(move);
+
+      return el;
+    },
+
+    render() {
+      const board = App.el.kbBoard;
+      board.innerHTML = "";
       for (let s = 0; s < 3; s++) {
         const col = document.createElement("div");
         col.className = "kb-col";
+        col.setAttribute("role", "group");
+        col.setAttribute("aria-label", KB_STATUS[s] + " 컬럼");
 
-        const cards = kanban.filter((c) => c.status === s);
+        const cards = App.state.kanban.filter((c) => c.status === s);
         const head = document.createElement("div");
         head.className = "kb-col-head";
         head.innerHTML = `${KB_ICON[s]} ${KB_STATUS[s]} <span class="kb-count">${cards.length}</span>`;
@@ -646,293 +867,524 @@
         list.className = "kb-list";
         list.ondragover = (e) => { e.preventDefault(); list.classList.add("drop-hover"); };
         list.ondragleave = () => list.classList.remove("drop-hover");
-        list.ondrop = (e) => {
-          e.preventDefault();
-          list.classList.remove("drop-hover");
-          moveCardTo(dragId, s);
-        };
+        list.ondrop = (e) => { e.preventDefault(); list.classList.remove("drop-hover"); this.moveCardTo(App.state.dragId, s); };
 
-        cards.forEach((card) => list.appendChild(buildCard(card)));
+        cards.forEach((card) => list.appendChild(this.buildCard(card)));
         if (cards.length === 0) {
           const empty = document.createElement("div");
           empty.className = "kb-empty";
           empty.textContent = "비어 있음";
           list.appendChild(empty);
         }
-
         col.appendChild(list);
-        kbBoard.appendChild(col);
+        board.appendChild(col);
       }
-    }
+    },
 
-    function addCard() {
-      const text = kbText.value.trim();
+    add() {
+      const text = App.el.kbText.value.trim();
       if (!text) return;
-      kanban.push({ id: newId(), text, cat: kbCat.value, status: 0, memo: "", due: "", carried: false });
-      saveKanban();
-      kbText.value = "";
-      renderKanban();
-      renderCalendar();
-    }
+      App.state.kanban.push({ id: Store.newId(), text, cat: App.el.kbCat.value, status: 0, memo: "", due: "", carried: false });
+      this.saveCurrent();
+      App.el.kbText.value = "";
+      refreshDerived();
+    },
+  };
 
-    kbAddBtn.onclick = addCard;
-    kbText.addEventListener("keydown", (e) => { if (e.key === "Enter") addCard(); });
+  // ===== Modal: 카드 상세 =========================================================
+  const Modal = {
+    editingId: null,
+    status: 0,
+    lastFocus: null,
 
-    // ====== 카드 상세 모달 ======
-    function openCard(id) {
-      const card = kanban.find((c) => c.id === id);
+    open(id) {
+      const card = App.state.kanban.find((c) => c.id === id);
       if (!card) return;
-      editingId = id;
-      modalStatus = card.status;
-      mText.value = card.text;
-      mCat.value = card.cat;
-      mDue.value = card.due || "";
-      mMemo.value = card.memo || "";
-      renderModalStatus();
-      cardModal.hidden = false;
-    }
+      this.lastFocus = document.activeElement;
+      this.editingId = id;
+      this.status = card.status;
+      App.el.mText.value = card.text;
+      App.el.mCat.value = card.cat;
+      App.el.mDue.value = card.due || "";
+      App.el.mMemo.value = card.memo || "";
+      this.renderStatus();
+      App.el.cardModal.hidden = false;
+      App.el.mText.focus();
+    },
 
-    function renderModalStatus() {
-      [...mStatusBox.children].forEach((btn, i) => btn.classList.toggle("active", i === modalStatus));
-    }
+    renderStatus() {
+      [...App.el.mStatus.children].forEach((btn, i) => btn.classList.toggle("active", i === this.status));
+    },
 
-    function closeModal() { cardModal.hidden = true; editingId = null; }
+    close() {
+      App.el.cardModal.hidden = true;
+      this.editingId = null;
+      if (this.lastFocus && this.lastFocus.focus) this.lastFocus.focus(); // 포커스 복귀
+    },
 
-    function saveCard() {
-      const card = kanban.find((c) => c.id === editingId);
-      if (!card) { closeModal(); return; }
-      const t = mText.value.trim();
-      if (!t) { alert("내용을 입력해 주세요."); return; }
+    save() {
+      const card = App.state.kanban.find((c) => c.id === this.editingId);
+      if (!card) { this.close(); return; }
+      const t = App.el.mText.value.trim();
+      if (!t) { Toast.show("내용을 입력해 주세요."); App.el.mText.focus(); return; }
       card.text = t;
-      card.cat = mCat.value;
-      card.due = mDue.value;
-      card.memo = mMemo.value;
-      card.status = modalStatus;
-      saveKanban();
-      renderKanban();
-      renderCalendar();
-      closeModal();
-    }
+      card.cat = App.el.mCat.value;
+      card.due = App.el.mDue.value;
+      card.memo = App.el.mMemo.value;
+      card.status = this.status;
+      Board.saveCurrent();
+      refreshDerived();
+      this.close();
+    },
 
-    function deleteCard() {
+    del() {
       if (!confirm("이 카드를 삭제할까요?")) return;
-      kanban = kanban.filter((c) => c.id !== editingId);
-      saveKanban();
-      renderKanban();
-      renderCalendar();
-      closeModal();
-    }
+      App.state.kanban = App.state.kanban.filter((c) => c.id !== this.editingId);
+      Board.saveCurrent();
+      refreshDerived();
+      this.close();
+    },
 
     // 회고에 카드 내용을 한 줄 추가 (입력 중인 회고 내용은 보존)
-    function addToJournal(field, btn) {
-      const card = kanban.find((c) => c.id === editingId);
+    addToJournal(field, btn) {
+      const card = App.state.kanban.find((c) => c.id === this.editingId);
       if (!card) return;
-      journalFields.forEach((f) => { journal[f] = document.getElementById(f).value; });
+      Journal.pullFromInputs();
       const line = "• " + card.text;
-      const cur = (journal[field] || "").replace(/\s*$/, "");
-      journal[field] = cur ? cur + "\n" + line : line;
-      save(JOURNAL_KEY, journal);
-      renderJournal();
-      renderCalendar();
+      const cur = (App.state.journal[field] || "").replace(/\s*$/, "");
+      App.state.journal[field] = cur ? cur + "\n" + line : line;
+      Journal.saveNow();
+      Journal.render();
+      refreshDerived();
       const original = btn.textContent;
       btn.textContent = "추가됨 ✓";
       setTimeout(() => { btn.textContent = original; }, 1200);
-    }
+    },
+  };
 
-    // 모달 버튼 연결
-    [...mStatusBox.children].forEach((btn, i) => {
-      btn.onclick = () => { modalStatus = i; renderModalStatus(); };
-    });
-    document.querySelectorAll(".modal-retro button").forEach((btn) => {
-      btn.onclick = () => addToJournal(btn.dataset.field, btn);
-    });
-    document.getElementById("mSave").onclick = saveCard;
-    document.getElementById("mDelete").onclick = deleteCard;
-    document.getElementById("modalClose").onclick = closeModal;
-    cardModal.onclick = (e) => { if (e.target === cardModal) closeModal(); };
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !cardModal.hidden) closeModal(); });
+  // ===== Journal: 회고 (디바운스 자동 저장으로 데이터 손실 방지) =======================
+  const Journal = {
+    timer: null,
 
-    // ====== 회고 저널 ======
-    function renderJournal() {
-      journalFields.forEach((f) => { document.getElementById(f).value = journal[f] || ""; });
-    }
+    render() {
+      JOURNAL_FIELDS.forEach((f) => { App.el[f].value = App.state.journal[f] || ""; });
+    },
 
-    document.getElementById("saveJournalBtn").onclick = () => {
-      journalFields.forEach((f) => { journal[f] = document.getElementById(f).value; });
-      save(JOURNAL_KEY, journal);
-      renderCalendar();
-      const msg = document.getElementById("savedMsg");
+    // 입력칸 → 상태로 값 끌어오기
+    pullFromInputs() {
+      JOURNAL_FIELDS.forEach((f) => { App.state.journal[f] = App.el[f].value; });
+    },
+
+    // 내용이 하나라도 있으면 저장, 전부 비었으면 키를 지워 빈 회고가 쌓이지 않게 한다
+    saveNow() {
+      const hasContent = JOURNAL_FIELDS.some((f) => (App.state.journal[f] || "").trim() !== "");
+      if (hasContent) Store.save(App.state.journalKey, App.state.journal);
+      else Store.remove(App.state.journalKey);
+    },
+
+    // 입력 시 호출: 디바운스로 자동 저장(잦은 쓰기 방지)
+    onInput() {
+      this.pullFromInputs();
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => { this.saveNow(); refreshDerived(); }, 500);
+    },
+
+    // 날짜를 떠나기 전 등 즉시 반영이 필요할 때: 대기 중인 저장을 flush
+    flush() {
+      if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+      this.pullFromInputs();
+      this.saveNow();
+    },
+
+    // "회고 저장" 버튼: 명시적 저장 + 피드백
+    saveExplicit() {
+      this.flush();
+      refreshDerived();
+      const msg = App.el.savedMsg;
       msg.classList.add("show");
       setTimeout(() => msg.classList.remove("show"), 1500);
-    };
+    },
+  };
 
-    // ====== 기록 달력 ======
-    // 보드(카드 1개 이상) 또는 회고(내용 있음) 기록이 있는 날짜들의 집합
-    function getRecordedDays() {
-      const set = new Set();
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        if (k.startsWith("kanban:")) {
-          const arr = load(k, []);
-          if (Array.isArray(arr) && arr.length > 0) set.add(k.slice(7));
-        } else if (k.startsWith("journal:")) {
-          const obj = load(k, {});
-          if (Object.values(obj).some((v) => v && String(v).trim() !== "")) set.add(k.slice(8));
-        }
-      }
-      return set;
-    }
-
-    function renderCalendar() {
+  // ===== Calendar: 기록 달력 (App.state.recorded 사용, 재스캔 없음) ===================
+  const Calendar = {
+    render() {
+      const calMonth = App.state.calMonth;
       const year = calMonth.getFullYear();
-      const month = calMonth.getMonth(); // 0~11
-      calTitle.textContent = year + "년 " + (month + 1) + "월";
+      const month = calMonth.getMonth();
+      App.el.calTitle.textContent = year + "년 " + (month + 1) + "월";
 
-      const thisMonth = startOfMonth(todayStart);
-      calNext.disabled = year === thisMonth.getFullYear() && month === thisMonth.getMonth();
+      const thisMonth = DateUtil.startOfMonth(todayStart);
+      App.el.calNext.disabled = year === thisMonth.getFullYear() && month === thisMonth.getMonth();
 
-      const recorded = getRecordedDays();
-      const selectedKey = toKey(viewDate);
-      const todayKey = toKey(todayStart);
+      const recorded = App.state.recorded;
+      const selectedKey = DateUtil.toKey(App.state.viewDate);
+      const todayKey = DateUtil.toKey(todayStart);
 
-      calGrid.innerHTML = "";
+      const grid = App.el.calGrid;
+      grid.innerHTML = "";
       ["일", "월", "화", "수", "목", "금", "토"].forEach((h, idx) => {
         const head = document.createElement("div");
         head.className = "cal-head" + (idx === 0 ? " sun" : idx === 6 ? " sat" : "");
         head.textContent = h;
-        calGrid.appendChild(head);
+        grid.appendChild(head);
       });
 
       const firstWeekday = new Date(year, month, 1).getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
-
       for (let i = 0; i < firstWeekday; i++) {
         const blank = document.createElement("div");
         blank.className = "cal-day blank";
-        calGrid.appendChild(blank);
+        grid.appendChild(blank);
       }
-
       for (let d = 1; d <= lastDate; d++) {
         const cellDate = new Date(year, month, d);
-        const key = toKey(cellDate);
+        const key = DateUtil.toKey(cellDate);
         const cell = document.createElement("div");
         cell.className = "cal-day";
         cell.textContent = d;
 
-        const isFuture = startOfDay(cellDate) > todayStart;
+        const isFuture = DateUtil.startOfDay(cellDate) > todayStart;
         if (isFuture) cell.classList.add("future");
         if (key === todayKey) cell.classList.add("today");
         if (key === selectedKey) cell.classList.add("selected");
-
         if (recorded.has(key)) {
           const dot = document.createElement("span");
           dot.className = "cal-dot";
           cell.appendChild(dot);
         }
-
         if (!isFuture) {
-          cell.onclick = () => {
-            viewDate = new Date(cellDate);
-            loadDay();
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          };
+          cell.onclick = () => { navigateTo(cellDate); window.scrollTo({ top: 0, behavior: "smooth" }); };
         }
-        calGrid.appendChild(cell);
+        grid.appendChild(cell);
       }
-      renderStats(); // 달력과 통계는 같은 데이터에서 나오므로 함께 갱신
-    }
+    },
+    // 달력 월 이동만(데이터 변화 없음) → recorded 재계산 없이 다시 그린다
+    shiftMonth(delta) {
+      const m = App.state.calMonth;
+      App.state.calMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+      this.render();
+    },
+  };
 
-    calPrev.onclick = () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); };
-    calNext.onclick = () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); };
-
-    // ====== 통계 ======
-    // 연속 기록 일수: 오늘(아직 기록 없으면 어제)부터 거슬러 올라가며 기록 있는 날을 센다
-    function computeStreak(recorded) {
+  // ===== Stats: 통계 (App.state.recorded 사용) =====================================
+  const Stats = {
+    // 연속 기록 일수: 오늘(없으면 어제)부터 거슬러 올라가며 기록 있는 날을 센다
+    computeStreak(recorded) {
       let streak = 0;
       const d = new Date(todayStart);
-      if (!recorded.has(toKey(d))) d.setDate(d.getDate() - 1);
-      while (recorded.has(toKey(d))) {
-        streak++;
-        d.setDate(d.getDate() - 1);
-      }
+      if (!recorded.has(DateUtil.toKey(d))) d.setDate(d.getDate() - 1);
+      while (recorded.has(DateUtil.toKey(d))) { streak++; d.setDate(d.getDate() - 1); }
       return streak;
-    }
-
+    },
     // 이번 주(일요일~오늘) 보드 카드의 완료율
-    function computeWeekStats() {
+    computeWeekStats() {
       const weekStart = new Date(todayStart);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // 이번 주 일요일로
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
       let total = 0, done = 0;
       const d = new Date(weekStart);
       while (d <= todayStart) {
-        load("kanban:" + toKey(d), []).forEach((c) => { total++; if (c.status === 2) done++; });
+        Store.load("kanban:" + DateUtil.toKey(d), []).forEach((c) => { total++; if (c.status === 2) done++; });
         d.setDate(d.getDate() + 1);
       }
       return { total, done, rate: total ? Math.round((done / total) * 100) : 0 };
-    }
+    },
+    render() {
+      const streak = this.computeStreak(App.state.recorded);
+      App.el.statStreak.textContent = "🔥 " + streak + "일";
+      App.el.statStreakSub.textContent = streak === 0 ? "오늘 기록을 남겨보세요" : "연속 기록 중!";
 
-    function renderStats() {
-      const recorded = getRecordedDays();
-      const streak = computeStreak(recorded);
-      document.getElementById("statStreak").textContent = "🔥 " + streak + "일";
-      document.getElementById("statStreakSub").textContent =
-        streak === 0 ? "오늘 기록을 남겨보세요" : "연속 기록 중!";
+      const wk = this.computeWeekStats();
+      App.el.statRate.textContent = wk.total ? wk.rate + "%" : "—";
+      App.el.statRateBar.style.width = (wk.total ? wk.rate : 0) + "%";
+      App.el.statRateSub.textContent = wk.total ? `완료 ${wk.done} / 전체 ${wk.total}` : "이번 주 카드 없음";
+    },
+  };
 
-      const wk = computeWeekStats();
-      document.getElementById("statRate").textContent = wk.total ? wk.rate + "%" : "—";
-      document.getElementById("statRateBar").style.width = (wk.total ? wk.rate : 0) + "%";
-      document.getElementById("statRateSub").textContent =
-        wk.total ? `완료 ${wk.done} / 전체 ${wk.total}` : "이번 주 카드 없음";
-    }
-
-    // ====== 데이터 백업 (내보내기 / 가져오기) ======
-    function exportData() {
+  // ===== Backup: 내보내기 / 가져오기 ==============================================
+  const Backup = {
+    export() {
       const data = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith("journal:") || k.startsWith("kanban:"))) {
-          data[k] = JSON.parse(localStorage.getItem(k));
-        }
-      }
+      Store.eachKey((k) => {
+        if (k.startsWith("journal:") || k.startsWith("kanban:")) data[k] = Store.load(k, null);
+      });
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "retro-backup-" + toKey(todayStart) + ".json";
+      a.download = "retro-backup-" + DateUtil.toKey(todayStart) + ".json";
       a.click();
       URL.revokeObjectURL(url);
-    }
-
-    function importData(file) {
+    },
+    import(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         let data;
         try { data = JSON.parse(e.target.result); }
-        catch (err) { alert("파일을 읽을 수 없어요. 올바른 백업 JSON인지 확인해 주세요."); return; }
-        // 옛 백업(todos:)도 받아들인 뒤 보드로 이전한다
+        catch { Toast.show("파일을 읽을 수 없어요. 올바른 백업 JSON인지 확인해 주세요."); return; }
         const keys = Object.keys(data).filter((k) => k.startsWith("journal:") || k.startsWith("kanban:") || k.startsWith("todos:"));
-        if (keys.length === 0) { alert("가져올 항목이 없어요."); return; }
+        if (keys.length === 0) { Toast.show("가져올 항목이 없어요."); return; }
         if (!confirm(keys.length + "개 항목을 가져옵니다. 같은 날짜의 기존 데이터는 덮어써져요. 계속할까요?")) return;
-        keys.forEach((k) => localStorage.setItem(k, JSON.stringify(data[k])));
-        migrateTodosToBoard(); // 옛 할 일 데이터를 보드 카드로 흡수
-        alert(keys.length + "개 항목을 복원했어요.");
+        keys.forEach((k) => Store.save(k, data[k]));
+        Carry.migrateTodosToBoard(); // 옛 할 일 데이터를 보드 카드로 흡수
+        Toast.show(keys.length + "개 항목을 복원했어요.");
         loadDay();
       };
       reader.readAsText(file);
-    }
+    },
+  };
 
-    document.getElementById("exportBtn").onclick = exportData;
-    const importFile = document.getElementById("importFile");
-    document.getElementById("importBtn").onclick = () => importFile.click();
-    importFile.onchange = (e) => {
-      if (e.target.files[0]) { importData(e.target.files[0]); e.target.value = ""; }
-    };
+  // ===== AI: Claude API (백엔드 없이 브라우저에서 직접 호출) ==========================
+  const AI = {
+    key() { return Store.getStr("settings:anthropicKey", ""); },
+    model() { return Store.getStr("settings:model", "claude-haiku-4-5-20251001"); },
 
-    // ---- 초기 실행 ----
-    migrateTodosToBoard();  // 옛 "할 일" 목록을 보드로 이전
-    carryOverIncomplete();  // 미완료 카드 자동 이월
+    // system + user 메시지로 한 번 호출하고 텍스트를 반환. 키 없으면 에러 throw.
+    async call(system, userText, maxTokens = 1024) {
+      const key = this.key();
+      if (!key) throw new Error("NO_KEY");
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: this.model(),
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: "user", content: userText }],
+        }),
+      });
+      if (!res.ok) {
+        let detail = "";
+        try { detail = (await res.json())?.error?.message || ""; } catch {}
+        throw new Error(`API ${res.status}${detail ? ": " + detail : ""}`);
+      }
+      const data = await res.json();
+      return (data.content || []).map((b) => b.text || "").join("").trim();
+    },
+
+    // 코드펜스(```json ... ```)를 벗겨 JSON을 느슨하게 파싱
+    parseJson(text) {
+      let t = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+      const s = t.indexOf("{"), e = t.lastIndexOf("}");
+      if (s !== -1 && e !== -1) t = t.slice(s, e + 1);
+      return JSON.parse(t);
+    },
+
+    // AI 버튼 공통 처리: 로딩 표시 → fn 실행 → 출력 박스에 결과/에러
+    async run(btn, outEl, fn) {
+      if (!this.key()) {
+        Toast.show("먼저 ⚙️ 설정에서 API 키를 입력해 주세요.");
+        Settings.open();
+        return;
+      }
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> 생성 중…';
+      if (outEl) { outEl.classList.add("show"); outEl.innerHTML = '<span class="spinner"></span> AI가 생각 중이에요…'; }
+      try {
+        await fn();
+      } catch (err) {
+        const msg = err.message === "NO_KEY" ? "API 키가 없어요. ⚙️ 설정에서 입력해 주세요."
+          : "요청 실패: " + err.message + "\n(file://에서 막히면 간단한 로컬 서버로 열어 보세요. 예: python -m http.server)";
+        if (outEl) outEl.innerHTML = `<span class="ai-err">${msg}</span>`;
+        else Toast.show(msg);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }
+    },
+
+    // 보드 상태를 텍스트로 요약 (프롬프트 입력용)
+    boardSummary() {
+      const byStatus = [[], [], []];
+      App.state.kanban.forEach((c) => byStatus[c.status].push(`${KB_CAT[c.cat]}: ${c.text}${c.due ? " (마감 " + c.due + ")" : ""}`));
+      return KB_STATUS.map((label, i) =>
+        `${label}:\n` + (byStatus[i].length ? byStatus[i].map((x) => "  - " + x).join("\n") : "  (없음)")
+      ).join("\n");
+    },
+
+    // ① 회고 초안: 오늘 보드 + 기존 회고로 {good,bad,tomorrow} 초안을 만들어 입력칸에 채운다
+    draftRetro() {
+      Journal.pullFromInputs();
+      const system = "너는 사용자의 하루 회고 작성을 돕는 따뜻한 코치다. 주어진 '오늘의 목표 보드' 상태와 기존 메모를 참고해 한국어로 간결하고 구체적인 회고 초안을 작성한다. 각 항목은 1~3줄, 각 줄은 '• '로 시작한다. 반드시 아래 JSON만 출력한다: {\"good\":\"...\",\"bad\":\"...\",\"tomorrow\":\"...\"}";
+      const userText =
+        "오늘의 목표 보드:\n" + this.boardSummary() +
+        "\n\n기존 회고 메모(있으면 반영):\n" +
+        JOURNAL_FIELDS.map((f) => `${JOURNAL_LABEL[f]}: ${App.state.journal[f] || "(없음)"}`).join("\n") +
+        "\n\n위 내용을 바탕으로 회고 초안을 JSON으로 작성해 줘.";
+      return this.run(App.el.aiDraftBtn, null, async () => {
+        const text = await this.call(system, userText, 800);
+        const obj = this.parseJson(text);
+        JOURNAL_FIELDS.forEach((f) => { if (obj[f]) App.state.journal[f] = obj[f]; });
+        Journal.saveNow();
+        Journal.render();
+        refreshDerived();
+        Toast.show("AI 회고 초안을 채웠어요. 자유롭게 다듬어 보세요.");
+      });
+    },
+
+    // ② 주간 인사이트: 최근 7일 보드/회고를 모아 코칭 요약을 받는다
+    weeklyInsight() {
+      const lines = [];
+      const d = new Date(todayStart);
+      d.setDate(d.getDate() - 6);
+      while (d <= todayStart) {
+        const key = DateUtil.toKey(d);
+        const board = Store.load("kanban:" + key, []);
+        const jr = Store.load("journal:" + key, {});
+        const done = board.filter((c) => c.status === 2).length;
+        const jrText = JOURNAL_FIELDS.map((f) => jr[f]).filter(Boolean).join(" / ");
+        if (board.length || jrText) {
+          lines.push(`${key}: 카드 ${board.length}개 중 완료 ${done}개${jrText ? " · 회고: " + jrText : ""}`);
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      const system = "너는 생산성 코치다. 최근 7일의 할 일·완료·회고 데이터를 보고 한국어로 따뜻하면서도 실질적인 인사이트를 준다. 형식: 2~3개의 짧은 관찰 + 내일을 위한 구체적 제안 1가지. 6문장 이내, 불릿(•) 사용. JSON 아님, 일반 텍스트.";
+      const userText = lines.length ? "최근 7일 기록:\n" + lines.join("\n") : "최근 7일 기록이 거의 없어. 기록을 시작하도록 격려해 줘.";
+      return this.run(App.el.aiInsightBtn, App.el.aiInsightOut, async () => {
+        const text = await this.call(system, userText, 600);
+        App.el.aiInsightOut.textContent = text;
+      });
+    },
+
+    // ③ 우선순위 추천: '할 일'(status 0) 카드의 처리 순서를 받아 보드를 재정렬한다
+    prioritize() {
+      const todos = App.state.kanban.filter((c) => c.status === 0);
+      return this.run(App.el.aiPrioritizeBtn, App.el.aiPrioritizeOut, async () => {
+        if (todos.length < 2) { App.el.aiPrioritizeOut.textContent = "정렬할 '할 일' 카드가 2개 이상 필요해요."; return; }
+        const list = todos.map((c, i) => `${i}: ${KB_CAT[c.cat]} · ${c.text}${c.due ? " (마감 " + c.due + ")" : ""}`).join("\n");
+        const system = "너는 생산성 어시스턴트다. 주어진 '할 일' 목록을 마감·중요도·난이도를 고려해 처리하기 좋은 순서로 정렬한다. 반드시 아래 JSON만 출력한다: {\"order\":[정렬된 인덱스 배열], \"notes\":\"왜 이렇게 정렬했는지 1~2문장\"}. order에는 입력의 모든 인덱스가 한 번씩 들어가야 한다.";
+        const text = await this.call(system, "할 일 목록(인덱스: 내용):\n" + list, 500);
+        const obj = this.parseJson(text);
+        const order = Array.isArray(obj.order) ? obj.order : null;
+        if (!order || order.length !== todos.length) throw new Error("정렬 결과를 이해하지 못했어요. 다시 시도해 주세요.");
+
+        // order 순서대로 status 0 카드들을 재배치 (나머지 상태 카드는 위치 유지)
+        const reordered = order.map((i) => todos[i]).filter(Boolean);
+        if (reordered.length !== todos.length) throw new Error("정렬 인덱스가 올바르지 않아요.");
+        let p = 0;
+        App.state.kanban = App.state.kanban.map((c) => (c.status === 0 ? reordered[p++] : c));
+        Board.saveCurrent();
+        refreshDerived();
+        App.el.aiPrioritizeOut.textContent = "✅ 추천 순서로 정렬했어요." + (obj.notes ? "\n💡 " + obj.notes : "");
+      });
+    },
+  };
+
+  // ===== Settings: API 키 / 모델 / (테마는 헤더 버튼) ================================
+  const Settings = {
+    open() {
+      App.el.setKey.value = AI.key();
+      App.el.setModel.value = AI.model();
+      App.el.settingsModal.hidden = false;
+      App.el.setKey.focus();
+    },
+    close() { App.el.settingsModal.hidden = true; },
+    save() {
+      Store.setStr("settings:anthropicKey", App.el.setKey.value.trim());
+      Store.setStr("settings:model", App.el.setModel.value);
+      Toast.show("설정을 저장했어요.");
+      this.close();
+    },
+    clear() {
+      Store.remove("settings:anthropicKey");
+      App.el.setKey.value = "";
+      Toast.show("API 키를 삭제했어요.");
+    },
+  };
+
+  // ===== 포커스 트랩: 모달 안에서 Tab이 빠져나가지 않게 ==============================
+  function trapFocus(modalEl, e) {
+    if (e.key !== "Tab") return;
+    const focusable = modalEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const list = [...focusable].filter((el) => !el.disabled && el.offsetParent !== null);
+    if (list.length === 0) return;
+    const first = list[0], last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  // ===== 요소 캐시 + 이벤트 연결 ===================================================
+  function cacheElements() {
+    const ids = [
+      "todayLabel","relLabel","prevDay","nextDay","goToday","carryNote","calTitle","calGrid","calPrev","calNext",
+      "kbBoard","kbText","kbCat","kbAddBtn","carryBtn","themeBtn","settingsBtn","toastWrap",
+      "good","bad","tomorrow","saveJournalBtn","savedMsg",
+      "statRate","statRateBar","statRateSub","statStreak","statStreakSub",
+      "exportBtn","importBtn","importFile",
+      "cardModal","mText","mCat","mDue","mMemo","mStatus","mSave","mDelete","modalClose",
+      "settingsModal","setKey","setModel","setSave","setClear","settingsClose",
+      "aiDraftBtn","aiInsightBtn","aiInsightOut","aiPrioritizeBtn","aiPrioritizeOut",
+    ];
+    ids.forEach((id) => { App.el[id] = document.getElementById(id); });
+  }
+
+  function bindEvents() {
+    const el = App.el;
+    // 날짜 이동
+    el.prevDay.onclick = () => Header.shiftDay(-1);
+    el.nextDay.onclick = () => Header.shiftDay(1);
+    el.goToday.onclick = () => navigateTo(todayStart);
+    // 보드
+    el.kbAddBtn.onclick = () => Board.add();
+    el.kbText.addEventListener("keydown", (e) => { if (e.key === "Enter") Board.add(); });
+    el.carryBtn.onclick = () => Carry.manual();
+    // 카드 모달
+    [...el.mStatus.children].forEach((btn, i) => { btn.onclick = () => { Modal.status = i; Modal.renderStatus(); }; });
+    document.querySelectorAll(".modal-retro button").forEach((btn) => { btn.onclick = () => Modal.addToJournal(btn.dataset.field, btn); });
+    el.mSave.onclick = () => Modal.save();
+    el.mDelete.onclick = () => Modal.del();
+    el.modalClose.onclick = () => Modal.close();
+    el.cardModal.onclick = (e) => { if (e.target === el.cardModal) Modal.close(); };
+    el.cardModal.addEventListener("keydown", (e) => trapFocus(el.cardModal, e));
+    // 회고: 자동 저장 + 명시적 저장
+    JOURNAL_FIELDS.forEach((f) => { el[f].addEventListener("input", () => Journal.onInput()); });
+    el.saveJournalBtn.onclick = () => Journal.saveExplicit();
+    // 달력
+    el.calPrev.onclick = () => Calendar.shiftMonth(-1);
+    el.calNext.onclick = () => Calendar.shiftMonth(1);
+    // 백업
+    el.exportBtn.onclick = () => Backup.export();
+    el.importBtn.onclick = () => el.importFile.click();
+    el.importFile.onchange = (e) => { if (e.target.files[0]) { Backup.import(e.target.files[0]); e.target.value = ""; } };
+    // 테마 / 설정
+    el.themeBtn.onclick = () => Theme.toggle();
+    el.settingsBtn.onclick = () => Settings.open();
+    el.setSave.onclick = () => Settings.save();
+    el.setClear.onclick = () => Settings.clear();
+    el.settingsClose.onclick = () => Settings.close();
+    el.settingsModal.onclick = (e) => { if (e.target === el.settingsModal) Settings.close(); };
+    el.settingsModal.addEventListener("keydown", (e) => trapFocus(el.settingsModal, e));
+    // AI 버튼
+    el.aiDraftBtn.onclick = () => AI.draftRetro();
+    el.aiInsightBtn.onclick = () => AI.weeklyInsight();
+    el.aiPrioritizeBtn.onclick = () => AI.prioritize();
+    // 공용: Esc로 열린 모달 닫기
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!el.cardModal.hidden) Modal.close();
+      else if (!el.settingsModal.hidden) Settings.close();
+    });
+    // 떠나기 전 회고 flush (탭 닫기/새로고침 대비)
+    window.addEventListener("beforeunload", () => Journal.flush());
+  }
+
+  // ===== 초기 실행 ===============================================================
+  function init() {
+    cacheElements();
+    Theme.init();
+    bindEvents();
+    Carry.migrateTodosToBoard(); // 옛 "할 일" 목록을 보드로 이전
+    Carry.carryOverIncomplete(); // 미완료 카드 자동 이월
     loadDay();
+  }
+
+  init();
   </script>
 </body>
 </html>
