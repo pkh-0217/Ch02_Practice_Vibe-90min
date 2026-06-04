@@ -113,12 +113,22 @@
 
 - 데이터는 **브라우저·기기에 종속**된다. 동기화 없음. 브라우저 데이터 삭제 시 소실 → `Backup` JSON으로 대비.
 - 날짜 키가 로컬 자정 기준이라 **다른 타임존 기기 간 이동에 취약**(ADR-004).
-- 단일 파일이라 **자동화 테스트가 없다**. 회귀 검증은 수동(`run`/`verify` 활용).
+- 회귀의 1차 안전망으로 **가드레일 테스트**(`tests/guardrails.test.js`)가 있다 — 절대 규칙·JS 문법을 커밋 직후 자동 검사(ADR-005, 8절). 단 런타임/DOM 동작까지 보는 통합 테스트는 아니라 **깊은 회귀 검증은 여전히 수동**(`run`/`verify`).
 - `index.html`이 커질수록 탐색 비용 증가 — 모듈 경계(`// ===== 모듈명 =====` 주석)를 깨지 말 것.
 
 ---
 
-## 8. 관련 문서
+## 8. 검증 루프 (가드레일 + 커밋 훅) — ADR-005
+
+> 코드를 읽으면 알 수 있는 시그니처 대신 **흐름·계약·제약**만 적는다.
+
+- **무엇을 검증하나** — `tests/guardrails.test.js`(Node 내장 `node:test`)가 CLAUDE.md 절대 규칙을 실행 가능한 검사로 인코딩한다: ① 인라인 `<script>` 문법(`node --check`) ② `localStorage` 직접 호출은 `Store` 안에서만 ③ 외부 CDN/스크립트 src·`package.json` 없음(단일 파일 유지) ④ `.toISOString()` 미사용(ADR-004) ⑤ 필수 모듈/렌더 경로 존재.
+- **언제 도나** — Claude Code `PostToolUse(Bash)` 훅(`.claude/settings.json`)이 `git commit`을 감지하면 `.claude/hooks/post-commit-validate.mjs`가 `node --test`를 실행한다. `if: "Bash(git *)"`로 git 명령에만 훅을 띄우고, 정확한 commit 판별은 스크립트가 한다(`git ... commit`).
+- **실패하면** — 훅이 exit 2 + 실패 출력을 stderr로 내보낸다. PostToolUse의 exit 2는 그 출력을 **Claude 컨텍스트로 되돌려**, Claude가 스스로 고친 뒤 다시 커밋하게 만든다(자기수정 루프).
+- **제약** — 의존성 0(Node 내장만)이라 ADR-001을 supersede하지 않는다. 정적·텍스트 기반 검사라 런타임/DOM 회귀는 못 잡는다. 가드레일이 모듈 선언·`<script>` 형태를 가정하므로 큰 리팩터 시 테스트도 함께 갱신한다.
+- **활성화** — 세션 시작 시 `.claude/settings.json`이 없었다면 훅 watcher가 즉시 인식하지 못할 수 있다. `/hooks`를 한 번 열거나 Claude Code를 재시작하면 활성화된다.
+
+## 9. 관련 문서
 
 - 절대 규칙·치트시트·컨벤션: `../../CLAUDE.md`
 - 아키텍처 의사결정 기록(ADR): `./decisions.md`

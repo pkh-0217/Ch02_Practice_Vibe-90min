@@ -25,9 +25,13 @@
 #  1) index.html 더블클릭          → 가장 간단
 #  2) 로컬 서버로 열기              → AI 호출이 file:// 에서 막힐 때 권장
 python -m http.server 8000        # → http://localhost:8000
+
+# 검증 — 커밋 후 자동 실행되는 가드레일 테스트 (Node 내장 러너, 의존성 0)
+node --test                       # tests/*.test.js 실행 — 절대 규칙·JS 문법 검사
 ```
 
-> 빌드 / 테스트 / lint / typecheck 스크립트는 **없다(의도적)**. `package.json`도 없다. 도구 추가는 위 절대 규칙 위반.
+> 빌드 / lint / typecheck 단계는 **없다(의도적)**. `package.json`도 없다 — npm·번들러·프레임워크 추가는 절대 규칙 위반.
+> 단 **검증용 가드레일 테스트는 Node 내장(`node --test`)만** 쓴다(의존성 0이라 절대 규칙과 충돌하지 않음). 커밋하면 `.claude/hooks/post-commit-validate.mjs` 훅이 자동 실행되고, 실패 출력이 컨텍스트로 돌아와 자기수정 루프가 된다 (ADR-005 · `@.claude/docs/architecture.md` 8절).
 
 ---
 
@@ -40,6 +44,9 @@ index.html  ← 전부 여기 한 파일 (<style> + <body> + <script>)
   <script>  전역 모듈 객체들 (모듈 시스템·import 없음)
 vibe-notes.md   실습 회고 노트
 .env.example    환경변수 템플릿 (현재는 자리표시자 — 백엔드 도입 시 사용)
+tests/guardrails.test.js                  가드레일 테스트(절대 규칙·문법) — Node 내장 러너, 의존성 0
+.claude/hooks/post-commit-validate.mjs    커밋 후 가드레일 자동 실행 훅 (ADR-005)
+.claude/settings.json                     PostToolUse 훅 설정 (공유 설정 — 커밋됨)
 ```
 
 **핵심 모듈** (모두 `<script>` 안의 전역 객체):
@@ -77,6 +84,7 @@ vibe-notes.md   실습 회고 노트
 
 > 90분 Vibe 실습으로 기능은 완성됨. 아래는 외부 공개 전 보완 항목 (`vibe-notes.md` 참조).
 
+- [x] 커밋 후 검증 루프 도입 — 가드레일 테스트 + `PostToolUse` 훅 (ADR-005). **활성화**: `/hooks`를 한 번 열거나 Claude Code 재시작(세션 시작 시 `settings.json`이 없었기 때문).
 - [ ] 코드 리뷰 / 리팩터 미실시 — 외부 사용자 공개 전 점검 필요
 - [ ] UI/UX 다듬기 미실시
 - [ ] 공개 배포하려면 API 키를 브라우저에서 분리하고 백엔드 프록시 도입

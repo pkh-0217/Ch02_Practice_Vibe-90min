@@ -102,3 +102,32 @@ HTML·CSS·JS를 **단일 `index.html`**에 모은다. 바닐라 JS만 사용하
 ### Alternatives considered
 - **UTC ISO 문자열 저장**: 다기기 이식엔 유리하나 로컬 자정 어긋남 버그를 부른다. 일일 플래너 특성상 기각.
 - **타임존 라이브러리 도입**: ADR-001(의존성 0)과 충돌하고 현재 규모에 과함. 기각.
+
+---
+
+## ADR-005: 커밋 후 검증 루프 — Node 내장 가드레일 테스트 + Claude Code 훅
+
+- **Status**: Accepted
+- **Date**: 2026-06-04
+
+### Context
+ADR-001로 자동 테스트가 없어(👎) 회귀 검증이 수동이었다. `index.html`을 수정하다 절대 규칙(localStorage 직접 호출 금지·외부 CDN 금지·`toISOString` 금지·단일 파일 유지)이나 JS 문법을 깨도 즉시 드러나지 않는다. 외부 공개 전 점검 단계에서 가벼운 안전망이 필요했다. 단, 어떤 검증도 ADR-001의 "의존성 0·빌드 없음"을 깨선 안 된다는 제약이 있었다.
+
+### Decision
+두 조각을 둔다.
+1. **가드레일 테스트** `tests/guardrails.test.js` — **Node 내장 러너(`node:test` / `node --test`)만** 쓴다(npm·`package.json`·CDN 없음). 절대 규칙을 실행 가능한 검사로 인코딩한다(문법 · localStorage 창구 · 외부 리소스 · toISOString · 필수 모듈).
+2. **커밋 후 훅** `.claude/settings.json`의 `PostToolUse(Bash)` 훅이 `git commit`을 감지해 `.claude/hooks/post-commit-validate.mjs`로 `node --test`를 돌린다. 실패 시 **exit 2 + 실패 출력**을 내보내 Claude 컨텍스트로 되돌리고, Claude가 자기수정 후 재커밋하게 한다.
+
+이 결정은 **ADR-001을 supersede하지 않는다** — 앱 자체는 여전히 단일 `index.html`·의존성 0이고, 테스트도 Node 내장만 쓴다.
+
+### Consequences
+- 👍 절대 규칙 위반·문법 오류가 커밋 즉시 드러나고, 출력이 컨텍스트로 돌아와 자기수정 루프가 된다.
+- 👍 의존성 0 유지 — 설치·빌드·공급망 리스크 없음. ADR-001과 공존.
+- 👎 정적·텍스트 기반 검사라 **런타임/DOM 동작 회귀는 못 잡는다**(깊은 검증은 여전히 수동 `run`/`verify`).
+- 👎 가드레일이 코드 구조(모듈 선언·`<script>` 형태)를 가정 → 큰 리팩터 시 테스트도 함께 갱신해야 한다.
+- 🧭 세션 시작 때 `.claude/settings.json`이 없었으면 훅이 바로 인식되지 않을 수 있어 `/hooks` 재로드 또는 재시작이 필요하다.
+
+### Alternatives considered
+- **Jest / Vitest 등 테스트 프레임워크**: DX는 좋지만 npm 의존성·`package.json`이 필요해 ADR-001 위반. 기각.
+- **git `post-commit` 훅**: 커밋 후 테스트는 돌지만 출력이 **Claude 컨텍스트로 돌아오지 않아** 자기수정 루프가 불가능. 기각(사람이 직접 보는 보완재로는 가능).
+- **DOM 스텁 단위 테스트**: 순수 함수까지 검증 가능하나 IIFE에서 함수 추출이 필요해 깨지기 쉽고 유지보수 비용이 크다. 현 단계엔 과함. 기각.
